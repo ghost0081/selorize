@@ -205,6 +205,7 @@ class SellScreenState extends State<SellScreen> {
   String? _selectedSeriesId;
   Timer? _brandModelEmptyTimer;
   final Set<String> _preloadedImageUrls = {};
+  final ScrollController _seriesScrollController = ScrollController();
 
   List<String> get _currentAvailableModels {
     if (_selectedBrand == null) return [];
@@ -576,6 +577,7 @@ class SellScreenState extends State<SellScreen> {
     _bankAccountNoController.dispose();
     _bankIfscController.dispose();
     _upiIdController.dispose();
+    _seriesScrollController.dispose();
     super.dispose();
   }
 
@@ -1542,7 +1544,6 @@ class SellScreenState extends State<SellScreen> {
       _modelListSearchQuery = '';
       _modelListSearchController.clear();
       _isLoadingSeriesModels = seriesId != null && localModels.isEmpty;
-      _modelImagesReady = false;
       _sellDataErrorMessage = null;
     });
     if (seriesId == null) {
@@ -4513,6 +4514,7 @@ class SellScreenState extends State<SellScreen> {
                           child: LayoutBuilder(
                             builder: (context, constraints) {
                               return SingleChildScrollView(
+                                controller: _seriesScrollController,
                                 scrollDirection: Axis.horizontal,
                                 physics: const BouncingScrollPhysics(),
                                 child: ConstrainedBox(
@@ -4597,7 +4599,6 @@ class SellScreenState extends State<SellScreen> {
 
   Widget _buildSeriesCard(String? seriesId, String label) {
     final isSelected = _selectedSeriesId == seriesId;
-    final showClose = isSelected && seriesId != null;
     final labelStyle = TextStyle(
       color: isSelected ? Colors.white : const Color(0xFF334155),
       fontSize: 14,
@@ -4609,62 +4610,40 @@ class SellScreenState extends State<SellScreen> {
       textDirection: Directionality.of(context),
       textScaler: MediaQuery.textScalerOf(context),
     )..layout();
-    final chipWidth = labelPainter.width + (showClose ? 57 : 30);
+    final chipWidth = labelPainter.width + 30;
 
     return GestureDetector(
       onTap: () => _selectSeries(isSelected ? null : seriesId),
-      child: Stack(
-        children: [
-          AnimatedContainer(
-            duration: const Duration(milliseconds: 200),
-            width: chipWidth,
-            height: 42,
-            alignment: Alignment.center,
-            padding: const EdgeInsets.symmetric(horizontal: 14),
-            decoration: BoxDecoration(
-              color: isSelected ? const Color(0xFF4267B2) : Colors.white,
-              borderRadius: BorderRadius.circular(10),
-              border: Border.all(
-                color: isSelected
-                    ? const Color(0xFF4267B2)
-                    : const Color(0xFFCBD5E1),
-              ),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.04),
-                  blurRadius: 8,
-                  offset: const Offset(0, 3),
-                ),
-              ],
-            ),
-            child: Text(
-              label,
-              textAlign: TextAlign.center,
-              maxLines: 1,
-              softWrap: false,
-              overflow: TextOverflow.visible,
-              style: labelStyle,
-            ),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        width: chipWidth,
+        height: 42,
+        alignment: Alignment.center,
+        padding: const EdgeInsets.symmetric(horizontal: 14),
+        decoration: BoxDecoration(
+          color: isSelected ? const Color(0xFF4267B2) : Colors.white,
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(
+            color: isSelected
+                ? const Color(0xFF4267B2)
+                : const Color(0xFFCBD5E1),
           ),
-          if (showClose)
-            Positioned(
-              top: 3,
-              right: 4,
-              child: Container(
-                width: 16,
-                height: 16,
-                decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.2),
-                  shape: BoxShape.circle,
-                ),
-                child: const Icon(
-                  Icons.close_rounded,
-                  size: 11,
-                  color: Colors.white,
-                ),
-              ),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.04),
+              blurRadius: 8,
+              offset: const Offset(0, 3),
             ),
-        ],
+          ],
+        ),
+        child: Text(
+          label,
+          textAlign: TextAlign.center,
+          maxLines: 1,
+          softWrap: false,
+          overflow: TextOverflow.visible,
+          style: labelStyle,
+        ),
       ),
     );
   }

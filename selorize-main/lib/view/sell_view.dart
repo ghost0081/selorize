@@ -642,13 +642,23 @@ class SellScreenState extends State<SellScreen> {
   }
 
   bool _isDefaultQuestionEnabled(Map<String, dynamic> question) {
+    if (question['mappingEnabled'] == false) return false;
+
     final rawDefault =
+        question['mappingEnabled'] ??
+        question['isSelected'] ??
+        question['is_selected'] ??
+        question['selected'] ??
+        question['enabled'] ??
+        question['is_enabled'] ??
         question['default'] ??
         question['isDefault'] ??
         question['is_default'] ??
         question['defaultQuestion'] ??
         question['default_question'] ??
-        question['status'];
+        question['status'] ??
+        question['active'] ??
+        question['is_active'];
 
     if (rawDefault == null) return true;
 
@@ -658,7 +668,8 @@ class SellScreenState extends State<SellScreen> {
         value == 'true' ||
         value == '1' ||
         value == 'active' ||
-        value == 'enabled';
+        value == 'enabled' ||
+        value == 'selected';
   }
 
   String _questionId(Map<String, dynamic> question) {

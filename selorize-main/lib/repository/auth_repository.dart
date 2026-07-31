@@ -410,14 +410,41 @@ class AuthRepository {
           .toList();
 
       final sequenceByQuestionId = <String, int>{};
+      final mappedQuestionIds = <String>{};
+      final enabledByQuestionId = <String, bool>{};
+
       for (final mapping in mappings) {
         final questionId =
             mapping['questionId']?.toString() ??
             mapping['question_id']?.toString() ??
+            mapping['id']?.toString() ??
             '';
-        final sequence = int.tryParse(mapping['sequence']?.toString() ?? '');
-        if (questionId.isNotEmpty && sequence != null) {
-          sequenceByQuestionId[questionId] = sequence;
+        if (questionId.isNotEmpty) {
+          mappedQuestionIds.add(questionId);
+          final sequence = int.tryParse(mapping['sequence']?.toString() ?? '');
+          if (sequence != null) {
+            sequenceByQuestionId[questionId] = sequence;
+          }
+          final rawStatus =
+              mapping['status'] ??
+              mapping['enabled'] ??
+              mapping['isDefault'] ??
+              mapping['is_default'] ??
+              mapping['default'] ??
+              mapping['active'] ??
+              mapping['isSelected'] ??
+              mapping['is_selected'];
+          if (rawStatus != null) {
+            final val = rawStatus.toString().trim().toLowerCase();
+            enabledByQuestionId[questionId] =
+                val == 'yes' ||
+                val == 'y' ||
+                val == 'true' ||
+                val == '1' ||
+                val == 'active' ||
+                val == 'enabled' ||
+                val == 'selected';
+          }
         }
       }
 
@@ -431,9 +458,26 @@ class AuthRepository {
         if (mappedSequence != null) {
           question['sequence'] = mappedSequence;
         }
+        if (enabledByQuestionId.containsKey(questionId)) {
+          question['mappingEnabled'] = enabledByQuestionId[questionId];
+        }
       }
 
-      final indexedQuestions = parsedQuestions.asMap().entries.toList();
+      var filteredQuestions = parsedQuestions;
+      if (mappedQuestionIds.isNotEmpty) {
+        filteredQuestions = parsedQuestions.where((question) {
+          final questionId =
+              question['id']?.toString() ??
+              question['questionId']?.toString() ??
+              question['question_id']?.toString() ??
+              '';
+          if (!mappedQuestionIds.contains(questionId)) return false;
+          if (enabledByQuestionId[questionId] == false) return false;
+          return true;
+        }).toList();
+      }
+
+      final indexedQuestions = filteredQuestions.asMap().entries.toList();
       indexedQuestions.sort((a, b) {
         final aSequence = _questionSequence(a.value);
         final bSequence = _questionSequence(b.value);

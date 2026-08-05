@@ -1491,10 +1491,7 @@ class SellScreenState extends State<SellScreen> {
       _selectedModel = name;
       _modelListSearchQuery = '';
       _modelListSearchController.clear();
-      if (storageOptions.isNotEmpty &&
-          !storageOptions.contains(_selectedStorage)) {
-        _selectedStorage = storageOptions.first;
-      }
+      _selectedStorage = '';
       _modelQuestions = [];
       _selectedAdminQuestionOptions.clear();
       _selectedCheckboxQuestionOptions.clear();
@@ -4708,8 +4705,9 @@ class SellScreenState extends State<SellScreen> {
         ],
       );
     }
-    if (!storageOptions.contains(_selectedStorage)) {
-      _selectedStorage = storageOptions.first;
+    if (_selectedStorage.isNotEmpty &&
+        !storageOptions.contains(_selectedStorage)) {
+      _selectedStorage = '';
     }
 
     return Column(
@@ -4852,7 +4850,17 @@ class SellScreenState extends State<SellScreen> {
         Padding(
           padding: const EdgeInsets.fromLTRB(20, 8, 20, 16),
           child: ElevatedButton(
-            onPressed: () => setState(() => _showValuation = true),
+            onPressed: () {
+              final storageOptions =
+                  _storageOptionsForModel(_selectedModel ?? '');
+              if (_selectedStorage.trim().isEmpty ||
+                  (storageOptions.isNotEmpty &&
+                      !storageOptions.contains(_selectedStorage))) {
+                _showStorageRequiredDialog(context);
+                return;
+              }
+              setState(() => _showValuation = true);
+            },
             style: ElevatedButton.styleFrom(
               backgroundColor: const Color(0xFF4A78A8),
               foregroundColor: Colors.white,
@@ -5074,6 +5082,14 @@ class SellScreenState extends State<SellScreen> {
                   const SizedBox(height: 22),
                   ElevatedButton(
                     onPressed: () {
+                      final storageOptions =
+                          _storageOptionsForModel(_selectedModel ?? '');
+                      if (_selectedStorage.trim().isEmpty ||
+                          (storageOptions.isNotEmpty &&
+                              !storageOptions.contains(_selectedStorage))) {
+                        _showStorageRequiredDialog(context);
+                        return;
+                      }
                       if (_adminImageQuestions.isNotEmpty) {
                         setState(() {
                           _adminImageQuestionIndex = 0;
@@ -5106,6 +5122,79 @@ class SellScreenState extends State<SellScreen> {
           ),
         ),
       ],
+    );
+  }
+
+  void _showStorageRequiredDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (context) => Dialog(
+        insetPadding: const EdgeInsets.symmetric(horizontal: 24),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(24),
+        ),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 28),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: Colors.orange.shade50,
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(
+                  Icons.warning_amber_rounded,
+                  color: Colors.orange.shade700,
+                  size: 44,
+                ),
+              ),
+              const SizedBox(height: 18),
+              const Text(
+                'Select Storage',
+                style: TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                  color: Color(0xFF1E293B),
+                ),
+              ),
+              const SizedBox(height: 10),
+              const Text(
+                'Please select a storage variant for your device to continue.',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 15,
+                  color: Color(0xFF64748B),
+                  height: 1.4,
+                ),
+              ),
+              const SizedBox(height: 24),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  onPressed: () => Navigator.of(context).pop(),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF4A78A8),
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                  child: const Text(
+                    'OK',
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 

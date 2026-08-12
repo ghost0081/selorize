@@ -22,15 +22,10 @@ class _SignUpScreenState extends State<SignUpScreen> {
   // 0 = enter mobile  |  1 = enter OTP  |  2 = fill details
   int _step = 0;
 
-  bool _isPasswordVisible = false;
-  bool _isRePasswordVisible = false;
-
   final _mobileController = TextEditingController();
   final _otpController = TextEditingController();
   final _nameController = TextEditingController();
   final _emailController = TextEditingController();
-  final _passwordController = TextEditingController();
-  final _confirmPasswordController = TextEditingController();
   final _blankFocusNode = FocusNode();
 
   @override
@@ -39,8 +34,6 @@ class _SignUpScreenState extends State<SignUpScreen> {
     _otpController.dispose();
     _nameController.dispose();
     _emailController.dispose();
-    _passwordController.dispose();
-    _confirmPasswordController.dispose();
     _blankFocusNode.dispose();
     super.dispose();
   }
@@ -57,13 +50,9 @@ class _SignUpScreenState extends State<SignUpScreen> {
     _otpController.clear();
     _nameController.clear();
     _emailController.clear();
-    _passwordController.clear();
-    _confirmPasswordController.clear();
 
     setState(() {
       _step = 0;
-      _isPasswordVisible = false;
-      _isRePasswordVisible = false;
     });
   }
 
@@ -136,16 +125,10 @@ class _SignUpScreenState extends State<SignUpScreen> {
   Future<void> _handleSignUp() async {
     final name = _nameController.text.trim();
     final email = _emailController.text.trim();
-    final password = _passwordController.text.trim();
-    final confirm = _confirmPasswordController.text.trim();
     final mobile = _mobileController.text.trim();
 
-    if (name.isEmpty || email.isEmpty || password.isEmpty) {
+    if (name.isEmpty || email.isEmpty) {
       _showSnack('Please fill all fields', isError: true);
-      return;
-    }
-    if (password != confirm) {
-      _showSnack('Passwords do not match', isError: true);
       return;
     }
 
@@ -154,7 +137,6 @@ class _SignUpScreenState extends State<SignUpScreen> {
       mobile: mobile,
       email: email,
       name: name,
-      password: password,
     );
     if (!mounted) return;
     if (success) {
@@ -381,31 +363,6 @@ class _SignUpScreenState extends State<SignUpScreen> {
                             hint: "e.g. john@example.com",
                             icon: Icons.mail_outline_rounded,
                             keyboardType: TextInputType.emailAddress,
-                          ),
-                          const SizedBox(height: 20),
-                          _inputField(
-                            controller: _passwordController,
-                            label: "Password",
-                            hint: "••••••••",
-                            icon: Icons.lock_outline_rounded,
-                            isPassword: true,
-                            isPasswordVisible: _isPasswordVisible,
-                            onToggleVisibility: () => setState(
-                              () => _isPasswordVisible = !_isPasswordVisible,
-                            ),
-                          ),
-                          const SizedBox(height: 20),
-                          _inputField(
-                            controller: _confirmPasswordController,
-                            label: "Confirm Password",
-                            hint: "••••••••",
-                            icon: Icons.lock_outline_rounded,
-                            isPassword: true,
-                            isPasswordVisible: _isRePasswordVisible,
-                            onToggleVisibility: () => setState(
-                              () =>
-                                  _isRePasswordVisible = !_isRePasswordVisible,
-                            ),
                           ),
                         ],
 

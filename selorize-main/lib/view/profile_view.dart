@@ -1,4 +1,6 @@
+import 'dart:async';
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:geocoding/geocoding.dart';
@@ -263,6 +265,18 @@ class _ProfileScreenState extends State<ProfileScreen> {
   bool _isLoadingMyTickets = false;
   bool _isLoadingFaqs = false;
   String? _faqErrorMessage;
+  
+  List<String> _citiesList = [];
+  bool _isLoadingCities = false;
+  final List<String> _statesList = [
+    'Andaman and Nicobar Islands', 'Andhra Pradesh', 'Arunachal Pradesh', 'Assam',
+    'Bihar', 'Chandigarh', 'Chhattisgarh', 'Dadra and Nagar Haveli and Daman and Diu',
+    'Delhi', 'Goa', 'Gujarat', 'Haryana', 'Himachal Pradesh', 'Jammu and Kashmir',
+    'Jharkhand', 'Karnataka', 'Kerala', 'Ladakh', 'Lakshadweep', 'Madhya Pradesh',
+    'Maharashtra', 'Manipur', 'Meghalaya', 'Mizoram', 'Nagaland', 'Odisha',
+    'Puducherry', 'Punjab', 'Rajasthan', 'Sikkim', 'Tamil Nadu', 'Telangana',
+    'Tripura', 'Uttar Pradesh', 'Uttarakhand', 'West Bengal'
+  ];
 
   final List<Map<String, dynamic>> _myTickets = [];
   List<FaqItem> _faqs = [];
@@ -290,7 +304,34 @@ class _ProfileScreenState extends State<ProfileScreen> {
       _loadBankDetails();
       _loadMyTickets();
       _loadFaqs();
+      _fetchCities();
     });
+  }
+
+  Future<void> _fetchCities() async {
+    setState(() => _isLoadingCities = true);
+    try {
+      final responseData = await _repo.getData(tableName: 'website', filter: {});
+      List<String> cities = [];
+      if (responseData.isNotEmpty) {
+        final rawCitiesStr = responseData[0]['cities'];
+        if (rawCitiesStr != null && rawCitiesStr.toString().isNotEmpty) {
+          final decoded = jsonDecode(rawCitiesStr.toString());
+          if (decoded is List) {
+            cities = decoded.map((e) => e.toString()).toList();
+          }
+        }
+      }
+      if (mounted) {
+        setState(() {
+          _citiesList = cities;
+        });
+      }
+    } catch (e) {
+      debugPrint("Error parsing cities JSON: $e");
+    } finally {
+      if (mounted) setState(() => _isLoadingCities = false);
+    }
   }
 
   @override
@@ -3424,18 +3465,20 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       Row(
                         children: [
                           Expanded(
-                            child: _buildModernField(
+                            child: _buildModernDropdownField(
                               controller: _addrCityController,
                               label: 'City',
                               icon: Icons.location_city_rounded,
+                              items: _citiesList,
                             ),
                           ),
                           const SizedBox(width: 12),
                           Expanded(
-                            child: _buildModernField(
+                            child: _buildModernDropdownField(
                               controller: _addrStateController,
                               label: 'State',
                               icon: Icons.map_rounded,
+                              items: _statesList,
                             ),
                           ),
                         ],
@@ -3699,6 +3742,52 @@ class _ProfileScreenState extends State<ProfileScreen> {
       controller: controller,
       keyboardType: keyboardType,
       validator: validator,
+      style: const TextStyle(
+        fontWeight: FontWeight.w700,
+        color: Color(0xFF0F172A),
+        fontSize: 15,
+      ),
+      decoration: InputDecoration(
+        labelText: label,
+        labelStyle: const TextStyle(
+          color: Color(0xFF94A3B8),
+          fontSize: 13,
+          fontWeight: FontWeight.w600,
+        ),
+        prefixIcon: Icon(icon, color: const Color(0xFF6366F1), size: 20),
+        filled: true,
+        fillColor: const Color(0xFFF8FAFC),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(16),
+          borderSide: BorderSide.none,
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(16),
+          borderSide: BorderSide.none,
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(16),
+          borderSide: const BorderSide(color: Color(0xFF6366F1), width: 1.5),
+        ),
+        contentPadding: const EdgeInsets.symmetric(vertical: 18),
+      ),
+    );
+  }
+
+  Widget _buildModernDropdownField({
+    required TextEditingController controller,
+    required String label,
+    required IconData icon,
+    required List<String> items,
+  }) {
+    return DropdownButtonFormField<String>(
+      value: items.contains(controller.text) ? controller.text : (items.isNotEmpty ? items.first : null),
+      onChanged: (val) {
+        if (val != null) {
+          controller.text = val;
+        }
+      },
+      items: items.map((e) => DropdownMenuItem(value: e, child: Text(e))).toList(),
       style: const TextStyle(
         fontWeight: FontWeight.w700,
         color: Color(0xFF0F172A),

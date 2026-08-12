@@ -16,18 +16,16 @@ class LoginScreen extends StatefulWidget {
 }
 
 class _LoginScreenState extends State<LoginScreen> {
-  bool _isPasswordVisible = false;
+  int _step = 0;
   final _mobileController = TextEditingController();
-  final _passwordController = TextEditingController();
+  final _otpController = TextEditingController();
   final _blankFocusNode = FocusNode();
-  final _passwordFocusNode = FocusNode();
 
   @override
   void dispose() {
     _mobileController.dispose();
-    _passwordController.dispose();
+    _otpController.dispose();
     _blankFocusNode.dispose();
-    _passwordFocusNode.dispose();
 
     super.dispose();
   }
@@ -36,9 +34,9 @@ class _LoginScreenState extends State<LoginScreen> {
     FocusManager.instance.primaryFocus?.unfocus();
 
     _mobileController.clear();
-    _passwordController.clear();
+    _otpController.clear();
 
-    setState(() => _isPasswordVisible = false);
+    setState(() => _step = 0);
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
@@ -46,20 +44,40 @@ class _LoginScreenState extends State<LoginScreen> {
     });
   }
 
-  Future<void> _handleLogin() async {
+  Future<void> _handleRequestOtp() async {
     final mobile = _mobileController.text.trim();
-    final password = _passwordController.text.trim();
 
-    if (mobile.isEmpty || password.isEmpty) {
-      _showSnack('Please enter mobile number and password', isError: true);
+    if (mobile.isEmpty || mobile.length < 10) {
+      _showSnack('Please enter a valid 10-digit mobile number', isError: true);
       return;
     }
-    if (mobile.length != 10) {
-      _showSnack('Mobile number must be 10 digits', isError: true);
-      return;
-    }
+    
     final vm = context.read<AuthViewModel>();
-    final success = await vm.login(mobile: mobile, password: password);
+    final success = await vm.requestLoginOtp(mobile);
+    if (!mounted) return;
+
+    if (success) {
+      _showSnack(vm.successMessage ?? 'OTP sent successfully');
+      setState(() => _step = 1);
+    } else {
+      final message = vm.errorMessage ?? 'Failed to send OTP. Please try again.';
+      if (_looksLikeMissingAccount(message)) {
+        _showCreateAccountPrompt();
+      } else {
+        _showSnack(message, isError: true);
+      }
+    }
+  }
+
+  Future<void> _handleVerifyOtp() async {
+    final otp = _otpController.text.trim();
+    if (otp.isEmpty) {
+      _showSnack('Please enter the OTP', isError: true);
+      return;
+    }
+
+    final vm = context.read<AuthViewModel>();
+    final success = await vm.verifyLoginOtp(otp);
     if (!mounted) return;
 
     if (success) {
@@ -68,12 +86,7 @@ class _LoginScreenState extends State<LoginScreen> {
         MaterialPageRoute(builder: (_) => const HomeScreen()),
       );
     } else {
-      final message = vm.errorMessage ?? 'Login failed. Please try again.';
-      if (_looksLikeMissingAccount(message)) {
-        _showCreateAccountPrompt();
-      } else {
-        _showSnack(message, isError: true);
-      }
+      _showSnack(vm.errorMessage ?? 'Invalid OTP', isError: true);
     }
   }
 
@@ -193,9 +206,11 @@ class _LoginScreenState extends State<LoginScreen> {
   void _handleBack() {
     if (FocusManager.instance.primaryFocus != null) {
       FocusManager.instance.primaryFocus?.unfocus();
+    }
+    if (_step == 1) {
+      setState(() => _step = 0);
       return;
     }
-
     _goHome();
   }
 
@@ -325,77 +340,53 @@ class _LoginScreenState extends State<LoginScreen> {
                                 ),
                                 child: Column(
                                   children: [
-                                    _inputField(
-                                      controller: _mobileController,
-                                      label: "Mobile Number",
-                                      hint: "10-digit mobile number",
-                                      icon: Icons.phone_android_rounded,
-                                      keyboardType: TextInputType.phone,
-                                      inputFormatters: [
-                                        FilteringTextInputFormatter.digitsOnly,
-                                        LengthLimitingTextInputFormatter(10),
-                                      ],
-                                      onChanged: (value) {
-                                        if (value.length == 10) {
-                                          FocusScope.of(
-                                            context,
-                                          ).requestFocus(_passwordFocusNode);
-                                        }
-                                      },
-                                    ),
-                                    SizedBox(height: compact ? 12 : 14),
-                                    _inputField(
-                                      controller: _passwordController,
-                                      focusNode: _passwordFocusNode,
-                                      label: "Password",
-                                      hint: "Enter your password",
-                                      icon: Icons.lock_outline_rounded,
-                                      isPassword: true,
-                                      isPasswordVisible: _isPasswordVisible,
-                                      onToggleVisibility: () => setState(
-                                        () => _isPasswordVisible =
-                                            !_isPasswordVisible,
+                                    if (_step == 0)
+                                      _inputField(
+                                        controller: _mobileController,
+                                        label: "Mobile Number",
+                                        hint: "10-digit mobile number",
+                                        icon: Icons.phone_android_rounded,
+                                        keyboardType: TextInputType.phone,
+                                        inputFormatters: [
+                                          FilteringTextInputFormatter.digitsOnly,
+                                          LengthLimitingTextInputFormatter(10),
+                                        ],
                                       ),
-                                    ),
-                                    const SizedBox(height: 6),
-                                    Align(
-                                      alignment: Alignment.centerRight,
-                                      child: TextButton(
-                                        onPressed: () => Navigator.push(
-                                          context,
-                                          MaterialPageRoute(
-                                            builder: (_) =>
-                                                const ForgotPasswordScreen(),
-                                          ),
-                                        ),
-                                        style: TextButton.styleFrom(
-                                          foregroundColor: const Color(
-                                            0xFF4F46E5,
-                                          ),
-                                          minimumSize: const Size(0, 30),
-                                          tapTargetSize:
-                                              MaterialTapTargetSize.shrinkWrap,
-                                          padding: const EdgeInsets.symmetric(
-                                            horizontal: 6,
-                                          ),
-                                        ),
-                                        child: const Text(
-                                          "Forgot Password?",
-                                          style: TextStyle(
-                                            fontWeight: FontWeight.w800,
-                                            fontSize: 12,
+                                    if (_step == 1) ...[
+                                      _inputField(
+                                        controller: _otpController,
+                                        label: "OTP",
+                                        hint: "Enter OTP",
+                                        icon: Icons.lock_clock_outlined,
+                                        keyboardType: TextInputType.number,
+                                        inputFormatters: [
+                                          FilteringTextInputFormatter.digitsOnly,
+                                          LengthLimitingTextInputFormatter(4),
+                                        ],
+                                      ),
+                                      const SizedBox(height: 8),
+                                      Align(
+                                        alignment: Alignment.centerRight,
+                                        child: TextButton(
+                                          onPressed: _handleRequestOtp,
+                                          child: const Text(
+                                            "Resend OTP",
+                                            style: TextStyle(
+                                              color: Color(0xFF4F46E5),
+                                              fontWeight: FontWeight.w700,
+                                            ),
                                           ),
                                         ),
                                       ),
-                                    ),
-                                    const SizedBox(height: 10),
+                                    ],
+                                    const SizedBox(height: 14),
                                     Consumer<AuthViewModel>(
                                       builder: (_, vm, __) => _primaryButton(
-                                        text: "Sign In",
+                                        text: _step == 0 ? "Send OTP" : "Verify OTP",
                                         isLoading: vm.isLoading,
                                         onPressed: vm.isLoading
                                             ? null
-                                            : _handleLogin,
+                                            : (_step == 0 ? _handleRequestOtp : _handleVerifyOtp),
                                       ),
                                     ),
                                   ],

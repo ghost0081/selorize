@@ -14,9 +14,7 @@ import '../res/api_constants.dart';
 import '../service/device_data_cache.dart';
 import '../service/notification_service.dart';
 import '../view_model/auth_viewmodel.dart';
-import 'package:geolocator/geolocator.dart';
-import 'package:geocoding/geocoding.dart';
-
+import 'package:selorize/view/city_selection_view.dart';
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
 
@@ -40,16 +38,12 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
 
   List<Map<String, dynamic>> _listings = [];
 
-  String _currentCity = 'Select Location';
-  bool _isLoadingLocation = false;
-
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _loadListingsFromDB();
-      _fetchCurrentCity();
     });
     _apiKeepAliveTimer = Timer.periodic(const Duration(minutes: 3), (_) {
       _refreshApiDataAfterResume();
@@ -85,10 +79,6 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
           _sellKey.currentState?.refreshApiDataAfterResume() ?? Future.value(),
       ];
 
-      if (_currentCity == 'Select Location' || _currentCity == 'Location Off') {
-        tasks.add(_fetchCurrentCity());
-      }
-
       await Future.wait(tasks);
     } catch (e) {
       debugPrint('Resume API refresh error: $e');
@@ -114,58 +104,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     }
   }
 
-  Future<void> _fetchCurrentCity() async {
-    setState(() => _isLoadingLocation = true);
 
-    try {
-      // Permission check
-      LocationPermission permission = await Geolocator.checkPermission();
-      if (permission == LocationPermission.denied) {
-        permission = await Geolocator.requestPermission();
-      }
-
-      if (permission == LocationPermission.deniedForever ||
-          permission == LocationPermission.denied) {
-        setState(() {
-          _currentCity = 'Location Off';
-          _isLoadingLocation = false;
-        });
-        return;
-      }
-
-      final position = await Geolocator.getCurrentPosition(
-        desiredAccuracy: LocationAccuracy.medium,
-      );
-
-      final placemarks = await placemarkFromCoordinates(
-        position.latitude,
-        position.longitude,
-      );
-
-      if (placemarks.isNotEmpty) {
-        final place = placemarks.first;
-        final area =
-            [
-              place.subLocality,
-              place.thoroughfare,
-              place.street,
-              place.name,
-              place.locality,
-              place.subAdministrativeArea,
-            ].firstWhere(
-              (value) => value != null && value.trim().isNotEmpty,
-              orElse: () => 'Unknown',
-            )!;
-
-        setState(() => _currentCity = area);
-      }
-    } catch (e) {
-      debugPrint('Location error: $e');
-      setState(() => _currentCity = 'Select Location');
-    } finally {
-      setState(() => _isLoadingLocation = false);
-    }
-  }
 
   Future<void> _openNotifications() async {
     await AppNotificationStore.markAllRead();
@@ -673,38 +612,31 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                       border: Border.all(color: const Color(0xFFE2E8F0)),
                     ),
                     child: GestureDetector(
-                      onTap: _fetchCurrentCity,
+                      onTap: () {
+                        Navigator.of(context).push(
+                          MaterialPageRoute(
+                            builder: (context) => const CitySelectionView(isFromHome: true),
+                          ),
+                        );
+                      },
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           Icon(
                             Icons.location_on_outlined,
                             size: 16,
-                            color:
-                                _currentCity == 'Select Location' ||
-                                    _currentCity == 'Location Off'
+                            color: context.watch<AuthViewModel>().selectedCity == null
                                 ? const Color(0xFF94A3B8)
                                 : const Color(0xFF6366F1),
                           ),
                           const SizedBox(width: 4),
                           Flexible(
-                            child: _isLoadingLocation
-                                ? Container(
-                                    width: 64,
-                                    height: 14,
-                                    decoration: BoxDecoration(
-                                      color: const Color(0xFFE2E8F0),
-                                      borderRadius: BorderRadius.circular(99),
-                                    ),
-                                  )
-                                : Text(
-                                    _currentCity,
+                            child: Text(
+                                    context.watch<AuthViewModel>().selectedCity ?? 'Select Location',
                                     maxLines: 1,
                                     overflow: TextOverflow.ellipsis,
                                     style: TextStyle(
-                                      color:
-                                          _currentCity == 'Select Location' ||
-                                              _currentCity == 'Location Off'
+                                      color: context.watch<AuthViewModel>().selectedCity == null
                                           ? const Color(0xFF94A3B8)
                                           : const Color(0xFF0F172A),
                                       fontSize: 13,

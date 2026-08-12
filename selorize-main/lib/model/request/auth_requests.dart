@@ -33,14 +33,12 @@ class SignUpRequest {
   final String mobile;
   final String email;
   final String name;
-  final String password;
   final String createdAt;
 
   const SignUpRequest({
     required this.mobile,
     required this.email,
     required this.name,
-    required this.password,
     required this.createdAt,
   });
 
@@ -49,8 +47,7 @@ class SignUpRequest {
       "mobile": mobile,
       "email": email,
       "name": name,
-      "password": password,
-      "createdAt": createdAt,
+      "created_at": createdAt,
     };
   }
 }

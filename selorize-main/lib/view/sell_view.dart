@@ -173,8 +173,9 @@ class SellScreenState extends State<SellScreen> {
   final TextEditingController _couponController = TextEditingController();
   final TextEditingController _sellLoginMobileController =
       TextEditingController();
-  final TextEditingController _sellLoginPasswordController =
+  final TextEditingController _sellLoginOtpController =
       TextEditingController();
+  int _sellLoginStep = 0;
   final TextEditingController _addressNameController = TextEditingController();
   final TextEditingController _addressMobileController =
       TextEditingController();
@@ -564,7 +565,7 @@ class SellScreenState extends State<SellScreen> {
     _searchController.dispose();
     _couponController.dispose();
     _sellLoginMobileController.dispose();
-    _sellLoginPasswordController.dispose();
+    _sellLoginOtpController.dispose();
     _addressNameController.dispose();
     _addressMobileController.dispose();
     _addressHouseController.dispose();
@@ -6951,20 +6952,12 @@ class SellScreenState extends State<SellScreen> {
     return true;
   }
 
-  Future<void> _handleSellLogin(StateSetter sheetSetState) async {
+  Future<void> _handleSellRequestOtp(StateSetter sheetSetState) async {
     final mobile = _sellLoginMobileController.text.trim();
-    final password = _sellLoginPasswordController.text.trim();
 
-    if (mobile.isEmpty || password.isEmpty) {
+    if (mobile.isEmpty || mobile.length < 10) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please enter mobile and password.')),
-      );
-      return;
-    }
-
-    if (mobile.length != 10) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Mobile number must be 10 digits.')),
+        const SnackBar(content: Text('Please enter a valid 10-digit mobile number')),
       );
       return;
     }
@@ -6973,7 +6966,44 @@ class SellScreenState extends State<SellScreen> {
     setState(() => _isSellLoginLoading = true);
 
     final vm = context.read<AuthViewModel>();
-    final success = await vm.login(mobile: mobile, password: password);
+    final success = await vm.requestLoginOtp(mobile);
+
+    if (!mounted) return;
+
+    sheetSetState(() => _isSellLoginLoading = false);
+    setState(() => _isSellLoginLoading = false);
+
+    if (success) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(vm.successMessage ?? 'OTP sent successfully')),
+      );
+      sheetSetState(() => _sellLoginStep = 1);
+    } else {
+      final message = vm.errorMessage ?? 'Failed to send OTP. Please try again.';
+      if (_looksLikeMissingAccount(message)) {
+        Navigator.pop(context);
+        _showSellCreateAccountSheet();
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+      }
+    }
+  }
+
+  Future<void> _handleSellVerifyOtp(StateSetter sheetSetState) async {
+    final otp = _sellLoginOtpController.text.trim();
+
+    if (otp.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please enter the OTP')),
+      );
+      return;
+    }
+
+    sheetSetState(() => _isSellLoginLoading = true);
+    setState(() => _isSellLoginLoading = true);
+
+    final vm = context.read<AuthViewModel>();
+    final success = await vm.verifyLoginOtp(otp);
 
     if (!mounted) return;
 
@@ -6981,22 +7011,16 @@ class SellScreenState extends State<SellScreen> {
     setState(() => _isSellLoginLoading = false);
 
     if (!success) {
-      final message = vm.errorMessage ?? 'Login failed.';
-      if (_looksLikeMissingAccount(message)) {
-        Navigator.pop(context);
-        _showSellCreateAccountSheet();
-      } else {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text(message)));
-      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(vm.errorMessage ?? 'Invalid OTP')),
+      );
       return;
     }
 
     final user = vm.loggedInUser;
     _addressNameController.text = user?.name ?? '';
     _addressMobileController.text = user?.mobile ?? '';
-    _sellLoginPasswordController.clear();
+    _sellLoginOtpController.clear();
     Navigator.pop(context);
     await _loadSellData();
 
@@ -7007,9 +7031,11 @@ class SellScreenState extends State<SellScreen> {
   }
 
   void _showSellLoginSheet() {
+    _sellLoginStep = 0;
+    _sellLoginOtpController.clear();
     bool obscurePassword = true;
 
-    showModalBottomSheet(
+    showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
@@ -7060,46 +7086,58 @@ class SellScreenState extends State<SellScreen> {
                       ),
                     ),
                     const SizedBox(height: 20),
-                    TextField(
-                      controller: _sellLoginMobileController,
-                      keyboardType: TextInputType.phone,
-                      maxLength: 10,
-                      decoration: InputDecoration(
-                        counterText: '',
-                        labelText: 'Mobile number',
-                        prefixIcon: const Icon(Icons.phone_android_rounded),
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(14),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 14),
-                    TextField(
-                      controller: _sellLoginPasswordController,
-                      obscureText: obscurePassword,
-                      decoration: InputDecoration(
-                        labelText: 'Password',
-                        prefixIcon: const Icon(Icons.lock_outline_rounded),
-                        suffixIcon: IconButton(
-                          onPressed: () => sheetSetState(
-                            () => obscurePassword = !obscurePassword,
-                          ),
-                          icon: Icon(
-                            obscurePassword
-                                ? Icons.visibility_off_outlined
-                                : Icons.visibility_outlined,
+                    if (_sellLoginStep == 0)
+                      TextField(
+                        controller: _sellLoginMobileController,
+                        keyboardType: TextInputType.phone,
+                        maxLength: 10,
+                        decoration: InputDecoration(
+                          counterText: '',
+                          labelText: 'Mobile number',
+                          prefixIcon: const Icon(Icons.phone_android_rounded),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(14),
                           ),
                         ),
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(14),
+                      ),
+                    if (_sellLoginStep == 1) ...[
+                      TextField(
+                        controller: _sellLoginOtpController,
+                        keyboardType: TextInputType.number,
+                        maxLength: 4,
+                        decoration: InputDecoration(
+                          counterText: '',
+                          labelText: 'OTP',
+                          prefixIcon: const Icon(Icons.lock_clock_outlined),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(14),
+                          ),
                         ),
                       ),
-                    ),
+                      const SizedBox(height: 8),
+                      Align(
+                        alignment: Alignment.centerRight,
+                        child: TextButton(
+                          onPressed: _isSellLoginLoading
+                              ? null
+                              : () => _handleSellRequestOtp(sheetSetState),
+                          child: const Text(
+                            "Resend OTP",
+                            style: TextStyle(
+                              color: Color(0xFF4A78A8),
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
                     const SizedBox(height: 18),
                     ElevatedButton(
                       onPressed: _isSellLoginLoading
                           ? null
-                          : () => _handleSellLogin(sheetSetState),
+                          : () => _sellLoginStep == 0
+                              ? _handleSellRequestOtp(sheetSetState)
+                              : _handleSellVerifyOtp(sheetSetState),
                       style: ElevatedButton.styleFrom(
                         backgroundColor: const Color(0xFF4A78A8),
                         foregroundColor: Colors.white,
@@ -7117,9 +7155,9 @@ class SellScreenState extends State<SellScreen> {
                                 color: Colors.white,
                               ),
                             )
-                          : const Text(
-                              'Login & View Price',
-                              style: TextStyle(
+                          : Text(
+                              _sellLoginStep == 0 ? 'Send OTP' : 'Login & View Price',
+                              style: const TextStyle(
                                 fontSize: 16,
                                 fontWeight: FontWeight.w800,
                               ),

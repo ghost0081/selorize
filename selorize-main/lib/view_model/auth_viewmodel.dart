@@ -14,6 +14,10 @@ class AuthViewModel extends ChangeNotifier {
   final AuthRepository _repo = AuthRepository();
 
   static const String _userIdKey = 'logged_in_user_id';
+  static const String _cityKey = 'selected_city';
+
+  String? _selectedCity;
+  String? get selectedCity => _selectedCity;
 
   ApiResponse<UserModel> _userResponse = ApiResponse.loading();
   ApiResponse<UserModel> get userResponse => _userResponse;
@@ -87,7 +91,6 @@ class AuthViewModel extends ChangeNotifier {
     required String mobile,
     required String email,
     required String name,
-    required String password,
   }) async {
     _setLoading(true);
     _clearMessages();
@@ -101,15 +104,11 @@ class AuthViewModel extends ChangeNotifier {
         mobile: mobile,
         email: email,
         name: name,
-        password: password,
       );
 
       final loggedInUser = user.id.isNotEmpty
           ? user
-          : await _loadLoggedInUserFromLogin(
-              mobile: mobile,
-              password: password,
-            );
+          : throw Exception('Failed to retrieve user data after signup.');
 
       _loggedInUser = loggedInUser;
       _userResponse = ApiResponse.completed(loggedInUser);
@@ -127,28 +126,67 @@ class AuthViewModel extends ChangeNotifier {
     }
   }
 
-  Future<bool> login({required String mobile, required String password}) async {
+  Future<bool> requestLoginOtp(String mobile) async {
     _setLoading(true);
     _clearMessages();
 
     try {
-      final user = await _loadLoggedInUserFromLogin(
-        mobile: mobile,
-        password: password,
-      );
+      final otpResponse = await _repo.requestLoginOtp(mobile);
 
-      _loggedInUser = user;
-      _userResponse = ApiResponse.completed(user);
+      if (otpResponse.otp.isEmpty) {
+        throw Exception('OTP was not returned by server.');
+      }
 
-      await _saveLogin(user);
+      _receivedOtp = otpResponse.otp;
+      _loggedInUser = otpResponse.user; // Temporarily hold user data
+      
+      if (_loggedInUser == null && otpResponse.userId != null && otpResponse.userId.isNotEmpty) {
+        _loggedInUser = await _repo.getUserDetail(otpResponse.userId);
+      }
+
+      _successMessage = otpResponse.message;
+      _authStep = AuthStep.otpSent;
+      notifyListeners();
       return true;
     } catch (e) {
       _errorMessage = e.toString();
-      _userResponse = ApiResponse.error(e.toString());
+      _authStep = AuthStep.idle;
+      _receivedOtp = null;
+      notifyListeners();
       return false;
     } finally {
       _setLoading(false);
     }
+  }
+
+  Future<bool> verifyLoginOtp(String otp) async {
+    _clearMessages();
+
+    if (_receivedOtp == null || _receivedOtp!.isEmpty) {
+      _errorMessage = 'Please request OTP first.';
+      notifyListeners();
+      return false;
+    }
+
+    if (otp.trim() != _receivedOtp) {
+      _errorMessage = 'Invalid OTP. Please try again.';
+      notifyListeners();
+      return false;
+    }
+
+    _authStep = AuthStep.otpVerified;
+    _successMessage = 'OTP verified successfully';
+    
+    if (_loggedInUser != null && _loggedInUser!.id.isNotEmpty) {
+      _userResponse = ApiResponse.completed(_loggedInUser);
+      await _saveLogin(_loggedInUser!);
+    } else {
+      _errorMessage = 'User data not found in login response.';
+      return false;
+    }
+    
+    notifyListeners();
+    return true;
   }
 
   Future<void> fetchUserDetail(String id) async {
@@ -570,6 +608,7 @@ class AuthViewModel extends ChangeNotifier {
 
     try {
       final prefs = await SharedPreferences.getInstance();
+      _selectedCity = prefs.getString(_cityKey);
       final savedUserId = prefs.getString(_userIdKey);
 
       if (savedUserId == null || savedUserId.isEmpty) {
@@ -588,6 +627,13 @@ class AuthViewModel extends ChangeNotifier {
       _isCheckingSavedUser = false;
       notifyListeners();
     }
+  }
+
+  Future<void> setCity(String city) async {
+    _selectedCity = city;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_cityKey, city);
+    notifyListeners();
   }
 
   Future<void> refreshLoggedInUser() async {
@@ -639,26 +685,7 @@ class AuthViewModel extends ChangeNotifier {
     return visit(response) ?? '';
   }
 
-  Future<UserModel> _loadLoggedInUserFromLogin({
-    required String mobile,
-    required String password,
-  }) async {
-    final response = await _repo.login(mobile: mobile, password: password);
 
-    final id = _extractUserId(response);
-
-    if (id.isNotEmpty) {
-      return _repo.getUserDetail(id);
-    }
-
-    final data = response['data'] ?? response;
-    final user = UserModel.fromJson(Map<String, dynamic>.from(data));
-    if (user.id.isEmpty) {
-      throw Exception('Account not found. Please create an account.');
-    }
-
-    return user;
-  }
 
   Future<bool> loginWithGoogle(BuildContext context) async {
     _setLoading(true);

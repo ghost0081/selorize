@@ -13,7 +13,7 @@ class ApiConstants {
 
   static const String SIGNUP_OTP = "${BASE_URL}signupOtp";
   static const String SIGNUP = "${BASE_URL}signup";
-  static const String LOGIN = "${BASE_URL}login";
+  static const String LOGIN_OTP = "${BASE_URL}sendOtpLogin";
   static const String USER_DETAIL = "${BASE_URL}userDetail";
   static const String FORGOT = "${BASE_URL}sendForgotOtp";
   static const String UPDATE_PASSWORD = "${BASE_URL}updatePassword";

@@ -46,7 +46,6 @@ class AuthRepository {
     required String mobile,
     required String email,
     required String name,
-    required String password,
   }) async {
     final now = DateTime.now();
     final createdAt =
@@ -59,24 +58,49 @@ class AuthRepository {
         mobile: mobile,
         email: email,
         name: name,
-        password: password,
         createdAt: createdAt,
       ).toJson(),
     );
 
+    final responseMap = Map<String, dynamic>.from(response);
+    final userId = _extractUserId(responseMap);
+
+    if (userId.isNotEmpty) {
+      return getUserDetail(userId);
+    }
+
     return UserModel.fromJson(_extractUserJson(response));
   }
 
-  Future<Map<String, dynamic>> login({
-    required String mobile,
-    required String password,
-  }) async {
+  Future<OtpResponse> requestLoginOtp(String mobile) async {
     final response = await _apiService.getPostApiRequest(
-      ApiConstants.LOGIN,
-      LoginRequest(mobile: mobile, password: password).toJson(),
+      ApiConstants.LOGIN_OTP,
+      {'mobile': mobile},
     );
 
-    return Map<String, dynamic>.from(response);
+    final rawMap = Map<String, dynamic>.from(response);
+    
+    // Attempt to extract user data from the response. The backend might send it at the root or under 'data' or 'user'
+    UserModel? userModel;
+    try {
+      if (rawMap.containsKey('data') && rawMap['data'] != null) {
+        userModel = UserModel.fromJson(_extractUserJson(rawMap['data']));
+      } else if (rawMap.containsKey('user') && rawMap['user'] != null) {
+        userModel = UserModel.fromJson(_extractUserJson(rawMap['user']));
+      } else if (rawMap.containsKey('id')) {
+        // Flat response
+        userModel = UserModel.fromJson(_extractUserJson(rawMap));
+      }
+    } catch (e) {
+      debugPrint("Error extracting user data from login OTP: $e");
+    }
+
+    return OtpResponse(
+      otp: rawMap['otp']?.toString() ?? '',
+      message: rawMap['message']?.toString() ?? 'OTP sent successfully',
+      userId: _extractUserId(rawMap),
+      user: userModel,
+    );
   }
 
   Future<String> updatePassword({
@@ -596,7 +620,7 @@ class AuthRepository {
   }
 
   String _extractUserId(Map<String, dynamic> response) {
-    final idKeys = ['id', 'user_id', 'userId', 'userid'];
+    final idKeys = ['id', 'user_id', 'userId', 'userid', 'insertId', 'lastId'];
 
     String? visit(dynamic value) {
       if (value is Map) {

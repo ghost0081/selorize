@@ -1,32 +1,32 @@
-import 'dart:convert';
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 
 import '../repository/auth_repository.dart';
-import '../view_model/auth_viewmodel.dart';
+import '../res/api_constants.dart';
+import 'location_selection_view.dart';
 
-class CitySelectionView extends StatefulWidget {
+class StateSelectionView extends StatefulWidget {
   final bool isFromHome;
 
-  const CitySelectionView({super.key, this.isFromHome = false});
+  const StateSelectionView({super.key, this.isFromHome = false});
 
   @override
-  State<CitySelectionView> createState() => _CitySelectionViewState();
+  State<StateSelectionView> createState() => _StateSelectionViewState();
 }
 
-class _CitySelectionViewState extends State<CitySelectionView> {
+class _StateSelectionViewState extends State<StateSelectionView> {
   final AuthRepository _repo = AuthRepository();
   bool _isLoading = true;
   String? _errorMessage;
-  List<Map<String, dynamic>> _cities = [];
-  List<Map<String, dynamic>> _filteredCities = [];
+  List<Map<String, dynamic>> _states = [];
+  List<Map<String, dynamic>> _filteredStates = [];
   final TextEditingController _searchController = TextEditingController();
 
   @override
   void initState() {
     super.initState();
-    _fetchCities();
-    _searchController.addListener(_filterCities);
+    _fetchStates();
+    _searchController.addListener(_filterStates);
   }
 
   @override
@@ -35,7 +35,7 @@ class _CitySelectionViewState extends State<CitySelectionView> {
     super.dispose();
   }
 
-  Future<void> _fetchCities() async {
+  Future<void> _fetchStates() async {
     setState(() {
       _isLoading = true;
       _errorMessage = null;
@@ -43,65 +43,52 @@ class _CitySelectionViewState extends State<CitySelectionView> {
 
     try {
       final responseData = await _repo.getData(
-        tableName: 'website',
+        tableName: 'operationalState',
         filter: {},
       );
-
-      List<Map<String, dynamic>> parsedCities = [];
-      if (responseData.isNotEmpty) {
-        final rawCitiesStr = responseData[0]['cities'];
-        if (rawCitiesStr != null && rawCitiesStr.toString().isNotEmpty) {
-          try {
-            final decoded = jsonDecode(rawCitiesStr.toString());
-            if (decoded is List) {
-              parsedCities = decoded.map((e) => {'cityName': e.toString()}).toList();
-            }
-          } catch (e) {
-            debugPrint("Error parsing cities JSON: $e");
-          }
-        }
-      }
       
-      final data = parsedCities;
+      final data = responseData.cast<Map<String, dynamic>>();
 
       if (!mounted) return;
 
       setState(() {
-        _cities = data;
-        _filteredCities = data;
+        _states = data;
+        _filteredStates = data;
         _isLoading = false;
       });
     } catch (e) {
       if (!mounted) return;
       setState(() {
-        _errorMessage = 'Failed to load cities: ${e.toString()}';
+        _errorMessage = 'Failed to load states: ${e.toString()}';
         _isLoading = false;
       });
     }
   }
 
-  void _filterCities() {
+  void _filterStates() {
     final query = _searchController.text.toLowerCase();
     setState(() {
-      _filteredCities = _cities.where((city) {
-        final cityName = _getCityName(city).toLowerCase();
-        return cityName.contains(query);
+      _filteredStates = _states.where((state) {
+        final stateName = _getStateName(state).toLowerCase();
+        return stateName.contains(query);
       }).toList();
     });
   }
 
-  String _getCityName(Map<String, dynamic> cityData) {
-    return (cityData['cityName'] ?? cityData['city_name'] ?? cityData['name'] ?? cityData['title'] ?? 'Unknown City').toString();
+  String _getStateName(Map<String, dynamic> stateData) {
+    return (stateData['name'] ?? 'Unknown State').toString();
   }
 
-  void _selectCity(String cityName) {
-    final authVm = context.read<AuthViewModel>();
-    authVm.setCity(cityName);
-
-    if (widget.isFromHome) {
-      Navigator.of(context).pop(); // Go back to Home
-    }
-    // If not from home, AuthGate will automatically rebuild and show Home because selectedCity is now set.
+  void _selectState(Map<String, dynamic> stateData) {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => LocationSelectionView(
+          stateId: stateData['id'].toString(),
+          stateName: _getStateName(stateData),
+          isFromHome: widget.isFromHome,
+        ),
+      ),
+    );
   }
 
   @override
@@ -109,7 +96,7 @@ class _CitySelectionViewState extends State<CitySelectionView> {
     return Scaffold(
       backgroundColor: Colors.white,
       appBar: AppBar(
-        title: const Text('Select Your City', style: TextStyle(fontWeight: FontWeight.bold)),
+        title: const Text('Select Your State', style: TextStyle(fontWeight: FontWeight.bold)),
         backgroundColor: Colors.white,
         surfaceTintColor: Colors.transparent,
         elevation: 0,
@@ -128,7 +115,7 @@ class _CitySelectionViewState extends State<CitySelectionView> {
             child: TextField(
               controller: _searchController,
               decoration: InputDecoration(
-                hintText: 'Search city...',
+                hintText: 'Search state...',
                 prefixIcon: const Icon(Icons.search, color: Color(0xFF4A78A8)),
                 filled: true,
                 fillColor: Colors.grey.shade100,
@@ -145,7 +132,7 @@ class _CitySelectionViewState extends State<CitySelectionView> {
                 ? const Center(child: CircularProgressIndicator())
                 : _errorMessage != null
                     ? _buildErrorView()
-                    : _buildCitiesGrid(),
+                    : _buildStatesGrid(),
           ),
         ],
       ),
@@ -168,7 +155,7 @@ class _CitySelectionViewState extends State<CitySelectionView> {
             ),
             const SizedBox(height: 24),
             ElevatedButton(
-              onPressed: _fetchCities,
+              onPressed: _fetchStates,
               style: ElevatedButton.styleFrom(
                 backgroundColor: const Color(0xFF4A78A8),
                 foregroundColor: Colors.white,
@@ -181,10 +168,10 @@ class _CitySelectionViewState extends State<CitySelectionView> {
     );
   }
 
-  Widget _buildCitiesGrid() {
-    if (_filteredCities.isEmpty) {
+  Widget _buildStatesGrid() {
+    if (_filteredStates.isEmpty) {
       return const Center(
-        child: Text('No cities found.', style: TextStyle(color: Colors.grey, fontSize: 16)),
+        child: Text('No states found.', style: TextStyle(color: Colors.grey, fontSize: 16)),
       );
     }
 
@@ -196,14 +183,15 @@ class _CitySelectionViewState extends State<CitySelectionView> {
         mainAxisSpacing: 16,
         childAspectRatio: 1.0, // Square cells
       ),
-      itemCount: _filteredCities.length,
+      itemCount: _filteredStates.length,
       itemBuilder: (context, index) {
-        final cityData = _filteredCities[index];
-        final cityName = _getCityName(cityData);
-        final imageUrl = cityData['image']?.toString() ?? cityData['icon']?.toString() ?? '';
+        final stateData = _filteredStates[index];
+        final stateName = _getStateName(stateData);
+        final iconPath = stateData['icon']?.toString() ?? '';
+        final imageUrl = iconPath.isNotEmpty ? '${ApiConstants.MEDIA_BASE_URL}$iconPath' : '';
 
         return InkWell(
-          onTap: () => _selectCity(cityName),
+          onTap: () => _selectState(stateData),
           borderRadius: BorderRadius.circular(16),
           child: Container(
             decoration: BoxDecoration(
@@ -224,31 +212,31 @@ class _CitySelectionViewState extends State<CitySelectionView> {
                 if (imageUrl.isNotEmpty)
                   Padding(
                     padding: const EdgeInsets.only(bottom: 8.0),
-                    child: Image.network(
-                      imageUrl,
+                    child: CachedNetworkImage(
+                      imageUrl: imageUrl,
                       width: 40,
                       height: 40,
-                      fit: BoxFit.cover,
-                      errorBuilder: (context, error, stackTrace) =>
-                          const Icon(Icons.location_city, size: 40, color: Colors.grey),
+                      fit: BoxFit.contain,
+                      errorWidget: (context, url, error) =>
+                          const Icon(Icons.map_outlined, size: 40, color: Colors.grey),
                     ),
                   )
                 else
                   const Padding(
                     padding: EdgeInsets.only(bottom: 8.0),
-                    child: Icon(Icons.location_city, size: 40, color: Color(0xFF4A78A8)),
+                    child: Icon(Icons.map_outlined, size: 40, color: Color(0xFF4A78A8)),
                   ),
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 4.0),
                   child: Text(
-                    cityName,
+                    stateName,
                     textAlign: TextAlign.center,
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
                     style: const TextStyle(
                       fontSize: 14,
                       fontWeight: FontWeight.w600,
-                      color: Color(0xFF1E293B),
+                      color: Color(0xFF333333),
                     ),
                   ),
                 ),

@@ -15,9 +15,13 @@ class AuthViewModel extends ChangeNotifier {
 
   static const String _userIdKey = 'logged_in_user_id';
   static const String _cityKey = 'selected_city';
+  static const String _stateKey = 'selected_state';
 
   String? _selectedCity;
   String? get selectedCity => _selectedCity;
+
+  String? _selectedState;
+  String? get selectedState => _selectedState;
 
   ApiResponse<UserModel> _userResponse = ApiResponse.loading();
   ApiResponse<UserModel> get userResponse => _userResponse;
@@ -609,6 +613,7 @@ class AuthViewModel extends ChangeNotifier {
     try {
       final prefs = await SharedPreferences.getInstance();
       _selectedCity = prefs.getString(_cityKey);
+      _selectedState = prefs.getString(_stateKey);
       final savedUserId = prefs.getString(_userIdKey);
 
       if (savedUserId == null || savedUserId.isEmpty) {
@@ -629,10 +634,12 @@ class AuthViewModel extends ChangeNotifier {
     }
   }
 
-  Future<void> setCity(String city) async {
+  Future<void> setLocation(String city, String state) async {
     _selectedCity = city;
+    _selectedState = state;
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(_cityKey, city);
+    await prefs.setString(_stateKey, state);
     notifyListeners();
   }
 

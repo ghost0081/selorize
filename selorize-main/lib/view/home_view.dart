@@ -14,7 +14,7 @@ import '../res/api_constants.dart';
 import '../service/device_data_cache.dart';
 import '../service/notification_service.dart';
 import '../view_model/auth_viewmodel.dart';
-import 'package:selorize/view/city_selection_view.dart';
+import 'package:selorize/view/state_selection_view.dart';
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
 
@@ -613,11 +613,12 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                     ),
                     child: GestureDetector(
                       onTap: () {
-                        Navigator.of(context).push(
-                          MaterialPageRoute(
-                            builder: (context) => const CitySelectionView(isFromHome: true),
-                          ),
-                        );
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                            builder: (context) => const StateSelectionView(isFromHome: true),
+                            ),
+                          );
                       },
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
@@ -632,16 +633,21 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                           const SizedBox(width: 4),
                           Flexible(
                             child: Text(
-                                    context.watch<AuthViewModel>().selectedCity ?? 'Select Location',
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: TextStyle(
-                                      color: context.watch<AuthViewModel>().selectedCity == null
-                                          ? const Color(0xFF94A3B8)
-                                          : const Color(0xFF0F172A),
-                                      fontSize: 13,
-                                      fontWeight: FontWeight.w600,
-                                    ),
+                              () {
+                                final vm = context.watch<AuthViewModel>();
+                                if (vm.selectedCity == null || vm.selectedCity!.isEmpty) return 'Select Location';
+                                if (vm.selectedState != null && vm.selectedState!.isNotEmpty) return '${vm.selectedState}/${vm.selectedCity}';
+                                return vm.selectedCity!;
+                              }(),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                color: context.watch<AuthViewModel>().selectedCity == null
+                                    ? const Color(0xFF94A3B8)
+                                    : const Color(0xFF0F172A),
+                                fontSize: 13,
+                                fontWeight: FontWeight.w600,
+                              ),
                                   ),
                           ),
                           const SizedBox(width: 2),

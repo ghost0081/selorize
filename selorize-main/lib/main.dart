@@ -6,7 +6,7 @@ import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:selorize/firebase_options.dart';
 import 'package:selorize/service/notification_service.dart';
 import 'package:selorize/service/fcm_token_service.dart';
-import 'package:selorize/view/city_selection_view.dart';
+import 'package:selorize/view/state_selection_view.dart';
 import 'package:selorize/view/home_view.dart';
 import 'package:selorize/view_model/auth_viewmodel.dart';
 import 'package:provider/provider.dart';
@@ -307,7 +307,7 @@ class AuthGate extends StatelessWidget {
           );
         }
         if (vm.selectedCity == null || vm.selectedCity!.isEmpty) {
-          return const CitySelectionView();
+          return const StateSelectionView();
         }
         return const HomeScreen();
       },

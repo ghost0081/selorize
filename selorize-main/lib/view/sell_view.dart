@@ -7393,13 +7393,9 @@ class SellScreenState extends State<SellScreen> {
               ),
               const SizedBox(height: 14),
               _buildBreakupRow(
-                'Condition Adjustment',
-                conditionAdjustment == 0
-                    ? 'No deduction'
-                    : '${conditionAdjustment > 0 ? '+' : '-'} \u20b9 ${_formatPrice(conditionAdjustment.abs())}',
-                valueColor: conditionAdjustment >= 0
-                    ? const Color(0xFF10B981)
-                    : const Color(0xFFE11D48),
+                'Processing Fees',
+                'Free',
+                valueColor: const Color(0xFF10B981),
               ),
               if (_appliedCoupon != null) ...[
                 const SizedBox(height: 14),

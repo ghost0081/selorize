@@ -1628,6 +1628,35 @@ class SellScreenState extends State<SellScreen> {
         throw Exception(_modelQuestionsErrorMessage);
       }
 
+      if (_usesAdminQuestions) {
+        for (final question in _configuredAdminQuestions) {
+          final compVal = question['compulsory']?.toString() ?? '';
+          if (compVal == '1' || compVal.toLowerCase() == 'true') {
+            final qId = _questionId(question);
+            final type = _questionType(question);
+            bool isAnswered = false;
+
+            if (type == 'Checkbox') {
+              final selectedIds = _selectedCheckboxQuestionOptions[qId];
+              if (selectedIds != null && selectedIds.isNotEmpty) {
+                isAnswered = true;
+              }
+            } else {
+              final selectedId = _selectedAdminQuestionOptions[qId];
+              if (selectedId != null && selectedId.trim().isNotEmpty) {
+                isAnswered = true;
+              }
+            }
+
+            if (!isAnswered) {
+              throw Exception(
+                'Please answer the compulsory question: ${_questionTitle(question)}',
+              );
+            }
+          }
+        }
+      }
+
       final selectedOptions = _selectedQuestionOptionIds();
 
       debugPrint(
@@ -9189,6 +9218,24 @@ class SellScreenState extends State<SellScreen> {
           padding: const EdgeInsets.fromLTRB(16, 8, 16, 10),
           child: ElevatedButton(
             onPressed: () {
+              final compVal = question['compulsory']?.toString() ?? '';
+              if (compVal == '1' || compVal.toLowerCase() == 'true') {
+                bool isAnswered = false;
+                if (isCheckbox) {
+                  isAnswered = selectedSet.isNotEmpty;
+                } else {
+                  isAnswered = selectedOptionId != null && selectedOptionId.trim().isNotEmpty;
+                }
+                if (!isAnswered) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text('Please answer the compulsory question: ${_questionTitle(question)}'),
+                    ),
+                  );
+                  return;
+                }
+              }
+
               if (_adminImageQuestionIndex < questions.length - 1) {
                 setState(() => _adminImageQuestionIndex++);
               } else {

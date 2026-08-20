@@ -421,10 +421,12 @@ class AuthRepository {
         ModelQuestionsRequest(modelId: modelId).toJson(),
       ),
       getData(tableName: 'modelQuestions', filter: {'modelId': modelId}),
+      getData(tableName: 'questions'),
     ]);
 
     final response = results[0] as Map;
     final mappings = results[1] as List<Map<String, dynamic>>;
+    final questionsTable = results[2] as List<Map<String, dynamic>>;
     final questions = response['message'] ?? response['data'] ?? [];
 
     if (questions is List) {
@@ -436,6 +438,14 @@ class AuthRepository {
       final sequenceByQuestionId = <String, int>{};
       final mappedQuestionIds = <String>{};
       final enabledByQuestionId = <String, bool>{};
+      final compulsoryByQuestionId = <String, String>{};
+
+      for (final q in questionsTable) {
+        final qId = q['id']?.toString() ?? '';
+        if (qId.isNotEmpty) {
+          compulsoryByQuestionId[qId] = q['compulsory']?.toString() ?? '';
+        }
+      }
 
       for (final mapping in mappings) {
         final questionId =
@@ -484,6 +494,9 @@ class AuthRepository {
         }
         if (enabledByQuestionId.containsKey(questionId)) {
           question['mappingEnabled'] = enabledByQuestionId[questionId];
+        }
+        if (compulsoryByQuestionId.containsKey(questionId)) {
+          question['compulsory'] = compulsoryByQuestionId[questionId];
         }
       }
 

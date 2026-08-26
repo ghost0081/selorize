@@ -266,17 +266,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
   bool _isLoadingFaqs = false;
   String? _faqErrorMessage;
   
-  List<String> _citiesList = [];
+  List<Map<String, dynamic>> _apiStates = [];
+  List<Map<String, dynamic>> _apiCities = [];
+
+  List<String> get _statesList => _apiStates.map((s) => s['name']?.toString() ?? '').toList();
+  List<String> get _citiesList => _apiCities.map((c) => c['locationName']?.toString() ?? '').toList();
   bool _isLoadingCities = false;
-  final List<String> _statesList = [
-    'Andaman and Nicobar Islands', 'Andhra Pradesh', 'Arunachal Pradesh', 'Assam',
-    'Bihar', 'Chandigarh', 'Chhattisgarh', 'Dadra and Nagar Haveli and Daman and Diu',
-    'Delhi', 'Goa', 'Gujarat', 'Haryana', 'Himachal Pradesh', 'Jammu and Kashmir',
-    'Jharkhand', 'Karnataka', 'Kerala', 'Ladakh', 'Lakshadweep', 'Madhya Pradesh',
-    'Maharashtra', 'Manipur', 'Meghalaya', 'Mizoram', 'Nagaland', 'Odisha',
-    'Puducherry', 'Punjab', 'Rajasthan', 'Sikkim', 'Tamil Nadu', 'Telangana',
-    'Tripura', 'Uttar Pradesh', 'Uttarakhand', 'West Bengal'
-  ];
 
   final List<Map<String, dynamic>> _myTickets = [];
   List<FaqItem> _faqs = [];
@@ -304,31 +299,52 @@ class _ProfileScreenState extends State<ProfileScreen> {
       _loadBankDetails();
       _loadMyTickets();
       _loadFaqs();
-      _fetchCities();
+      _fetchStates();
     });
   }
 
-  Future<void> _fetchCities() async {
+  Future<void> _fetchStates() async {
     setState(() => _isLoadingCities = true);
     try {
-      final responseData = await _repo.getData(tableName: 'website', filter: {});
-      List<String> cities = [];
-      if (responseData.isNotEmpty) {
-        final rawCitiesStr = responseData[0]['cities'];
-        if (rawCitiesStr != null && rawCitiesStr.toString().isNotEmpty) {
-          final decoded = jsonDecode(rawCitiesStr.toString());
-          if (decoded is List) {
-            cities = decoded.map((e) => e.toString()).toList();
-          }
-        }
-      }
+      final responseData = await _repo.getData(tableName: 'operationalState', filter: {});
       if (mounted) {
         setState(() {
-          _citiesList = cities;
+          _apiStates = responseData;
+        });
+      }
+      
+      if (_addrStateController.text.isNotEmpty) {
+        await _fetchCitiesForState(_addrStateController.text);
+      }
+    } catch (e) {
+      debugPrint("Error fetching states: $e");
+    } finally {
+      if (mounted) setState(() => _isLoadingCities = false);
+    }
+  }
+
+  Future<void> _fetchCitiesForState(String stateName) async {
+    setState(() => _isLoadingCities = true);
+    try {
+      final state = _apiStates.firstWhere(
+        (s) => (s['name']?.toString() ?? '') == stateName,
+        orElse: () => <String, dynamic>{},
+      );
+      if (state.isEmpty) return;
+      
+      final stateId = state['id'];
+      final responseData = await _repo.getData(tableName: 'locations', filter: {'stateId': stateId});
+      
+      if (mounted) {
+        setState(() {
+          _apiCities = responseData;
+          if (!_citiesList.contains(_addrCityController.text)) {
+            _addrCityController.clear();
+          }
         });
       }
     } catch (e) {
-      debugPrint("Error parsing cities JSON: $e");
+      debugPrint("Error fetching cities: $e");
     } finally {
       if (mounted) setState(() => _isLoadingCities = false);
     }
@@ -908,8 +924,21 @@ class _ProfileScreenState extends State<ProfileScreen> {
     _addrNameController.clear();
     _addrPhoneController.clear();
     _addrPincodeController.clear();
-    _addrStateController.clear();
-    _addrCityController.clear();
+    
+    final authVm = context.read<AuthViewModel>();
+    if (authVm.selectedState != null && authVm.selectedState!.isNotEmpty) {
+      _addrStateController.text = authVm.selectedState!;
+      _fetchCitiesForState(authVm.selectedState!);
+    } else {
+      _addrStateController.clear();
+    }
+    
+    if (authVm.selectedCity != null && authVm.selectedCity!.isNotEmpty) {
+      _addrCityController.text = authVm.selectedCity!;
+    } else {
+      _addrCityController.clear();
+    }
+    
     _addrHouseController.clear();
     _addrAreaController.clear();
     _selectedAddressType = 'Home';
@@ -3466,19 +3495,24 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         children: [
                           Expanded(
                             child: _buildModernDropdownField(
-                              controller: _addrCityController,
-                              label: 'City',
-                              icon: Icons.location_city_rounded,
-                              items: _citiesList,
+                              controller: _addrStateController,
+                              label: 'State',
+                              icon: Icons.map_rounded,
+                              items: _statesList,
+                              onChanged: (val) {
+                                if (val != null) {
+                                  _fetchCitiesForState(val);
+                                }
+                              },
                             ),
                           ),
                           const SizedBox(width: 12),
                           Expanded(
                             child: _buildModernDropdownField(
-                              controller: _addrStateController,
-                              label: 'State',
-                              icon: Icons.map_rounded,
-                              items: _statesList,
+                              controller: _addrCityController,
+                              label: 'City',
+                              icon: Icons.location_city_rounded,
+                              items: _citiesList,
                             ),
                           ),
                         ],
@@ -3779,6 +3813,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     required String label,
     required IconData icon,
     required List<String> items,
+    void Function(String?)? onChanged,
   }) {
     return DropdownButtonFormField<String>(
       value: items.contains(controller.text) ? controller.text : (items.isNotEmpty ? items.first : null),
@@ -3786,10 +3821,20 @@ class _ProfileScreenState extends State<ProfileScreen> {
         if (val != null) {
           controller.text = val;
         }
+        if (onChanged != null) {
+          onChanged(val);
+        }
       },
-      items: items.map((e) => DropdownMenuItem(value: e, child: Text(e))).toList(),
+      isExpanded: true,
+      items: items.map((e) => DropdownMenuItem(
+        value: e,
+        child: Text(
+          e,
+          overflow: TextOverflow.ellipsis,
+        ),
+      )).toList(),
       style: const TextStyle(
-        fontWeight: FontWeight.w700,
+        fontWeight: FontWeight.w500,
         color: Color(0xFF0F172A),
         fontSize: 15,
       ),

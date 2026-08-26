@@ -19,6 +19,7 @@ import '../res/api_constants.dart';
 import '../service/device_data_cache.dart';
 import '../view_model/auth_viewmodel.dart';
 import 'signup_view.dart';
+import 'state_selection_view.dart';
 
 class SellScreen extends StatefulWidget {
   final String currentOrderID;
@@ -61,6 +62,13 @@ class SellScreen extends StatefulWidget {
 
 class SellScreenState extends State<SellScreen> {
   final AuthRepository _repo = AuthRepository();
+  
+  List<Map<String, dynamic>> _apiStates = [];
+  List<Map<String, dynamic>> _apiCities = [];
+  bool _isLoadingCities = false;
+  List<String> get _statesList => _apiStates.map((s) => s['name']?.toString() ?? '').toList();
+  List<String> get _citiesList => _apiCities.map((c) => c['locationName']?.toString() ?? '').toList();
+  
   static List<Map<String, dynamic>> _cachedBrands = [];
   static List<Map<String, dynamic>> _cachedSeries = [];
   static List<Map<String, dynamic>> _cachedModels = [];
@@ -400,6 +408,7 @@ class SellScreenState extends State<SellScreen> {
   @override
   void initState() {
     super.initState();
+    _fetchStates();
     _apiBrands = List<Map<String, dynamic>>.from(_cachedBrands);
     _apiSeries = List<Map<String, dynamic>>.from(_cachedSeries);
     _apiModels = List<Map<String, dynamic>>.from(_cachedModels);
@@ -1485,6 +1494,19 @@ class SellScreenState extends State<SellScreen> {
   }
 
   void _selectModel(String name) {
+    final authVm = context.read<AuthViewModel>();
+    if (authVm.selectedState == null || authVm.selectedCity == null) {
+      Navigator.push(
+        context,
+        MaterialPageRoute(builder: (context) => const StateSelectionView()),
+      ).then((_) {
+        if (context.read<AuthViewModel>().selectedCity != null) {
+          _selectModel(name);
+        }
+      });
+      return;
+    }
+
     final storageOptions = _storageOptionsForModel(name);
     FocusScope.of(context).unfocus();
 
@@ -7346,10 +7368,7 @@ class SellScreenState extends State<SellScreen> {
       ),
       builder: (context) {
         final bottomPadding = MediaQuery.of(context).padding.bottom;
-        final baseDeviceValue = _enquiryBasePrice > 0
-            ? _enquiryBasePrice
-            : _calculatedBasePrice;
-        final conditionAdjustment = _calculatedBasePrice - baseDeviceValue;
+        final baseDeviceValue = _calculatedBasePrice;
 
         return Container(
           padding: EdgeInsets.fromLTRB(24, 12, 24, 20 + bottomPadding),
@@ -8234,6 +8253,14 @@ class SellScreenState extends State<SellScreen> {
                   Center(
                     child: TextButton(
                       onPressed: () {
+                        final authVm = context.read<AuthViewModel>();
+                        if (authVm.selectedState != null && authVm.selectedState!.isNotEmpty) {
+                          _addressStateController.text = authVm.selectedState!;
+                          _fetchCitiesForState(authVm.selectedState!);
+                        }
+                        if (authVm.selectedCity != null && authVm.selectedCity!.isNotEmpty) {
+                          _addressCityController.text = authVm.selectedCity!;
+                        }
                         setState(() {
                           _showAddressSelection = false;
                           _showAddAddress = true;
@@ -8368,18 +8395,25 @@ class SellScreenState extends State<SellScreen> {
                     Row(
                       children: [
                         Expanded(
-                          child: _buildModernTextField(
-                            "City",
-                            Icons.location_city_rounded,
-                            controller: _addressCityController,
+                          child: _buildModernDropdownField(
+                            "State",
+                            Icons.map_rounded,
+                            controller: _addressStateController,
+                            items: _statesList,
+                            onChanged: (val) {
+                              if (val != null) {
+                                _fetchCitiesForState(val);
+                              }
+                            },
                           ),
                         ),
                         const SizedBox(width: 12),
                         Expanded(
-                          child: _buildModernTextField(
-                            "State",
-                            Icons.map_rounded,
-                            controller: _addressStateController,
+                          child: _buildModernDropdownField(
+                            "City",
+                            Icons.location_city_rounded,
+                            controller: _addressCityController,
+                            items: _citiesList,
                           ),
                         ),
                       ],
@@ -8424,6 +8458,109 @@ class SellScreenState extends State<SellScreen> {
             ],
           ),
         ),
+      ),
+    );
+  }
+
+  Future<void> _fetchStates() async {
+    setState(() => _isLoadingCities = true);
+    try {
+      final responseData = await _repo.getData(tableName: 'operationalState', filter: {});
+      if (mounted) {
+        setState(() {
+          _apiStates = responseData;
+        });
+      }
+      if (_addressStateController.text.isNotEmpty) {
+        await _fetchCitiesForState(_addressStateController.text);
+      }
+    } catch (e) {
+      debugPrint("Error fetching states: $e");
+    } finally {
+      if (mounted) setState(() => _isLoadingCities = false);
+    }
+  }
+
+  Future<void> _fetchCitiesForState(String stateName) async {
+    setState(() => _isLoadingCities = true);
+    try {
+      final state = _apiStates.firstWhere(
+        (s) => (s['name']?.toString() ?? '') == stateName,
+        orElse: () => <String, dynamic>{},
+      );
+      if (state.isEmpty) return;
+      final stateId = state['id'];
+      final responseData = await _repo.getData(tableName: 'locations', filter: {'stateId': stateId});
+      if (mounted) {
+        setState(() {
+          _apiCities = responseData;
+          if (!_citiesList.contains(_addressCityController.text)) {
+            _addressCityController.clear();
+          }
+        });
+      }
+    } catch (e) {
+      debugPrint("Error fetching cities: $e");
+    } finally {
+      if (mounted) setState(() => _isLoadingCities = false);
+    }
+  }
+
+  Widget _buildModernDropdownField(
+    String hint,
+    IconData? icon, {
+    required TextEditingController controller,
+    required List<String> items,
+    void Function(String?)? onChanged,
+  }) {
+    return DropdownButtonFormField<String>(
+      value: items.contains(controller.text) ? controller.text : (items.isNotEmpty ? items.first : null),
+      onChanged: (val) {
+        if (val != null) {
+          controller.text = val;
+        }
+        if (onChanged != null) {
+          onChanged(val);
+        }
+      },
+      isExpanded: true,
+      items: items.map((e) => DropdownMenuItem(
+        value: e,
+        child: Text(
+          e,
+          overflow: TextOverflow.ellipsis,
+        ),
+      )).toList(),
+      style: const TextStyle(
+        fontWeight: FontWeight.w500,
+        color: Color(0xFF0F172A),
+        fontSize: 15,
+      ),
+      decoration: InputDecoration(
+        labelText: hint,
+        labelStyle: const TextStyle(
+          color: Color(0xFF94A3B8),
+          fontSize: 13,
+          fontWeight: FontWeight.w600,
+        ),
+        prefixIcon: icon != null
+            ? Icon(icon, size: 20, color: const Color(0xFF6366F1))
+            : null,
+        filled: true,
+        fillColor: const Color(0xFFF8FAFC),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(6),
+          borderSide: BorderSide.none,
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(6),
+          borderSide: BorderSide.none,
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(16),
+          borderSide: const BorderSide(color: Color(0xFF6366F1), width: 1.5),
+        ),
+        contentPadding: const EdgeInsets.symmetric(vertical: 18),
       ),
     );
   }
@@ -10876,7 +11013,7 @@ class SellScreenState extends State<SellScreen> {
                       ),
                       _dialogRow(
                         "Estimated Price",
-                        "\u20b9 ${_formatPrice(_enquiryBasePrice)}",
+                        "\u20b9 ${_formatPrice(_calculatedBasePrice)}",
                         valueColor: Colors.green.shade600,
                       ),
                       const SizedBox(height: 8),

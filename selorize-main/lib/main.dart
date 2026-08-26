@@ -306,9 +306,6 @@ class AuthGate extends StatelessWidget {
             body: Center(child: CircularProgressIndicator()),
           );
         }
-        if (vm.selectedCity == null || vm.selectedCity!.isEmpty) {
-          return const StateSelectionView();
-        }
         return const HomeScreen();
       },
     );

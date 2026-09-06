@@ -116,7 +116,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
       _moveToStep(2);
     } else {
       _showSnack(
-        vm.errorMessage ?? 'Invalid OTP. Please try again.',
+        'Wrong OTP',
         isError: true,
       );
     }
@@ -331,6 +331,12 @@ class _SignUpScreenState extends State<SignUpScreen> {
                               FilteringTextInputFormatter.digitsOnly,
                               LengthLimitingTextInputFormatter(4),
                             ],
+                            autofillHints: const [AutofillHints.oneTimeCode],
+                            onChanged: (val) {
+                              if (val.length == 4) {
+                                _handleVerifyOtp();
+                              }
+                            },
                           ),
                           const SizedBox(height: 12),
                           Align(
@@ -475,6 +481,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
     VoidCallback? onToggleVisibility,
     List<TextInputFormatter>? inputFormatters,
     ValueChanged<String>? onChanged,
+    Iterable<String>? autofillHints,
   }) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -507,6 +514,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
             keyboardType: keyboardType,
             inputFormatters: inputFormatters,
             onChanged: onChanged,
+            autofillHints: autofillHints,
             obscureText: isPassword && !isPasswordVisible,
             style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 15),
             decoration: InputDecoration(

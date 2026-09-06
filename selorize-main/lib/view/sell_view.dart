@@ -7016,6 +7016,28 @@ class SellScreenState extends State<SellScreen> {
     sheetSetState(() => _isSellLoginLoading = true);
     setState(() => _isSellLoginLoading = true);
 
+    try {
+      final existingUsers = await _repo.getData(
+        tableName: 'users',
+        filter: {'mobile': mobile},
+      );
+
+      if (existingUsers.isEmpty) {
+        if (!mounted) return;
+        sheetSetState(() => _isSellLoginLoading = false);
+        setState(() => _isSellLoginLoading = false);
+        
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Please register this number first')),
+        );
+        Navigator.pop(context);
+        _showSellCreateAccountSheet();
+        return;
+      }
+    } catch (e) {
+      debugPrint("Error checking if user exists: $e");
+    }
+
     final vm = context.read<AuthViewModel>();
     final success = await vm.requestLoginOtp(mobile);
 
@@ -7063,7 +7085,11 @@ class SellScreenState extends State<SellScreen> {
 
     if (!success) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(vm.errorMessage ?? 'Invalid OTP')),
+        const SnackBar(
+          content: Text('Wrong OTP', textAlign: TextAlign.center),
+          behavior: SnackBarBehavior.floating,
+          duration: Duration(seconds: 2),
+        ),
       );
       return;
     }
@@ -7093,10 +7119,9 @@ class SellScreenState extends State<SellScreen> {
       builder: (context) {
         return StatefulBuilder(
           builder: (context, sheetSetState) {
+            final bottomPadding = MediaQuery.of(context).viewInsets.bottom + MediaQuery.of(context).padding.bottom;
             return Padding(
-              padding: EdgeInsets.only(
-                bottom: MediaQuery.of(context).viewInsets.bottom,
-              ),
+              padding: EdgeInsets.only(bottom: bottomPadding),
               child: Container(
                 padding: const EdgeInsets.fromLTRB(24, 22, 24, 24),
                 decoration: const BoxDecoration(
@@ -7164,6 +7189,12 @@ class SellScreenState extends State<SellScreen> {
                             borderRadius: BorderRadius.circular(14),
                           ),
                         ),
+                        autofillHints: const [AutofillHints.oneTimeCode],
+                        onChanged: (val) {
+                          if (val.length == 4) {
+                            _handleSellVerifyOtp(sheetSetState);
+                          }
+                        },
                       ),
                       const SizedBox(height: 8),
                       Align(
@@ -7286,71 +7317,77 @@ class SellScreenState extends State<SellScreen> {
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.transparent,
-      builder: (context) => Container(
-        padding: const EdgeInsets.fromLTRB(24, 22, 24, 28),
-        decoration: const BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Container(
-              height: 52,
-              width: 52,
-              decoration: BoxDecoration(
-                color: const Color(0xFFEEF2FF),
-                borderRadius: BorderRadius.circular(16),
-              ),
-              child: const Icon(
-                Icons.person_add_alt_1_rounded,
-                color: Color(0xFF4F46E5),
-              ),
+      builder: (context) {
+        final bottomPadding = MediaQuery.of(context).padding.bottom;
+        return Padding(
+          padding: EdgeInsets.only(bottom: bottomPadding),
+          child: Container(
+            padding: const EdgeInsets.fromLTRB(24, 22, 24, 24),
+            decoration: const BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
             ),
-            const SizedBox(height: 16),
-            const Text(
-              'Create your account',
-              style: TextStyle(
-                fontSize: 22,
-                fontWeight: FontWeight.w900,
-                color: Color(0xFF0F172A),
-              ),
-            ),
-            const SizedBox(height: 8),
-            const Text(
-              'No account was found for this mobile number. Create one and your selling progress will stay ready.',
-              style: TextStyle(
-                fontSize: 14,
-                height: 1.4,
-                fontWeight: FontWeight.w600,
-                color: Color(0xFF64748B),
-              ),
-            ),
-            const SizedBox(height: 22),
-            ElevatedButton(
-              onPressed: () {
-                Navigator.pop(context);
-                _openSignupFromSell();
-              },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF4F46E5),
-                foregroundColor: Colors.white,
-                minimumSize: const Size(double.infinity, 54),
-                shape: RoundedRectangleBorder(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                height: 52,
+                width: 52,
+                decoration: BoxDecoration(
+                  color: const Color(0xFFEEF2FF),
                   borderRadius: BorderRadius.circular(16),
                 ),
-                elevation: 0,
+                child: const Icon(
+                  Icons.person_add_alt_1_rounded,
+                  color: Color(0xFF4F46E5),
+                ),
               ),
-              child: const Text(
-                'Create Account',
-                style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800),
+              const SizedBox(height: 16),
+              const Text(
+                'Create your account',
+                style: TextStyle(
+                  fontSize: 22,
+                  fontWeight: FontWeight.w900,
+                  color: Color(0xFF0F172A),
+                ),
               ),
-            ),
-          ],
+              const SizedBox(height: 8),
+              const Text(
+                'No account was found for this mobile number. Create one and your selling progress will stay ready.',
+                style: TextStyle(
+                  fontSize: 14,
+                  height: 1.4,
+                  fontWeight: FontWeight.w600,
+                  color: Color(0xFF64748B),
+                ),
+              ),
+              const SizedBox(height: 22),
+              ElevatedButton(
+                onPressed: () {
+                  Navigator.pop(context);
+                  _openSignupFromSell();
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF4F46E5),
+                  foregroundColor: Colors.white,
+                  minimumSize: const Size(double.infinity, 54),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  elevation: 0,
+                ),
+                child: const Text(
+                  'Create Account',
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800),
+                ),
+              ),
+            ],
+          ),
         ),
-      ),
-    );
+      );
+    },
+  );
   }
 
   void _showPriceBreakup(BuildContext context) {

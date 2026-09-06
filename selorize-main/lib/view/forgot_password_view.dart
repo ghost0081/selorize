@@ -86,7 +86,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
         FocusScope.of(context).requestFocus(_newPasswordFocusNode);
       });
     } else {
-      _showSnack(vm.errorMessage ?? 'Invalid OTP', isError: true);
+      _showSnack('Wrong OTP', isError: true);
     }
   }
 
@@ -331,9 +331,10 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                               FilteringTextInputFormatter.digitsOnly,
                               LengthLimitingTextInputFormatter(4),
                             ],
-                            onChanged: (value) {
-                              if (value.length == 4) {
-                                FocusScope.of(context).unfocus();
+                            autofillHints: const [AutofillHints.oneTimeCode],
+                            onChanged: (val) {
+                              if (val.length == 4) {
+                                _handleVerifyOtp();
                               }
                             },
                           ),
@@ -445,6 +446,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
     VoidCallback? onToggleVisibility,
     List<TextInputFormatter>? inputFormatters,
     ValueChanged<String>? onChanged,
+    Iterable<String>? autofillHints,
   }) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -478,6 +480,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
             obscureText: isPassword && !isPasswordVisible,
             inputFormatters: inputFormatters,
             onChanged: onChanged,
+            autofillHints: autofillHints,
             style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 15),
             decoration: InputDecoration(
               hintText: hint,

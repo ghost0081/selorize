@@ -86,7 +86,7 @@ class _LoginScreenState extends State<LoginScreen> {
         MaterialPageRoute(builder: (_) => const HomeScreen()),
       );
     } else {
-      _showSnack(vm.errorMessage ?? 'Invalid OTP', isError: true);
+      _showSnack('Wrong OTP', isError: true);
     }
   }
 
@@ -363,6 +363,12 @@ class _LoginScreenState extends State<LoginScreen> {
                                           FilteringTextInputFormatter.digitsOnly,
                                           LengthLimitingTextInputFormatter(4),
                                         ],
+                                        autofillHints: const [AutofillHints.oneTimeCode],
+                                        onChanged: (val) {
+                                          if (val.length == 4) {
+                                            _handleVerifyOtp();
+                                          }
+                                        },
                                       ),
                                       const SizedBox(height: 8),
                                       Align(
@@ -619,6 +625,7 @@ class _LoginScreenState extends State<LoginScreen> {
     List<TextInputFormatter>? inputFormatters,
     FocusNode? focusNode,
     ValueChanged<String>? onChanged,
+    Iterable<String>? autofillHints,
   }) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -649,6 +656,7 @@ class _LoginScreenState extends State<LoginScreen> {
             inputFormatters: inputFormatters,
             focusNode: focusNode,
             onChanged: onChanged,
+            autofillHints: autofillHints,
             style: const TextStyle(
               fontWeight: FontWeight.w600,
               fontSize: 15,

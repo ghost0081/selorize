@@ -1381,69 +1381,75 @@ class _ProfileScreenState extends State<ProfileScreen> {
     showModalBottomSheet<void>(
       context: context,
       backgroundColor: Colors.transparent,
-      builder: (context) => Container(
-        padding: const EdgeInsets.fromLTRB(24, 22, 24, 28),
-        decoration: const BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Container(
-              height: 54,
-              width: 54,
-              decoration: BoxDecoration(
-                color: const Color(0xFFEEF2FF),
-                borderRadius: BorderRadius.circular(18),
-              ),
-              child: const Icon(
-                Icons.lock_person_rounded,
-                color: Color(0xFF4F46E5),
-                size: 28,
-              ),
+      builder: (context) {
+        final bottomPadding = MediaQuery.of(context).padding.bottom;
+        return Padding(
+          padding: EdgeInsets.only(bottom: bottomPadding),
+          child: Container(
+            padding: const EdgeInsets.fromLTRB(24, 22, 24, 24),
+            decoration: const BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
             ),
-            const SizedBox(height: 16),
-            const Text(
-              'Login required',
-              style: TextStyle(
-                color: Color(0xFF0F172A),
-                fontSize: 22,
-                fontWeight: FontWeight.w900,
-              ),
-            ),
-            const SizedBox(height: 8),
-            const Text(
-              'Please login to manage personal info, addresses, bank details, and support tickets.',
-              style: TextStyle(
-                color: Color(0xFF64748B),
-                fontSize: 14,
-                height: 1.45,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-            const SizedBox(height: 22),
-            ElevatedButton(
-              onPressed: _openLoginScreen,
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF4F46E5),
-                foregroundColor: Colors.white,
-                minimumSize: const Size(double.infinity, 54),
-                elevation: 0,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(16),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+              Container(
+                height: 54,
+                width: 54,
+                decoration: BoxDecoration(
+                  color: const Color(0xFFEEF2FF),
+                  borderRadius: BorderRadius.circular(18),
+                ),
+                child: const Icon(
+                  Icons.lock_person_rounded,
+                  color: Color(0xFF4F46E5),
+                  size: 28,
                 ),
               ),
-              child: const Text(
-                'Login / Create Account',
-                style: TextStyle(fontSize: 16, fontWeight: FontWeight.w900),
+              const SizedBox(height: 16),
+              const Text(
+                'Login required',
+                style: TextStyle(
+                  color: Color(0xFF0F172A),
+                  fontSize: 22,
+                  fontWeight: FontWeight.w900,
+                ),
               ),
-            ),
-          ],
+              const SizedBox(height: 8),
+              const Text(
+                'Please login to manage personal info, addresses, bank details, and support tickets.',
+                style: TextStyle(
+                  color: Color(0xFF64748B),
+                  fontSize: 14,
+                  height: 1.45,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              const SizedBox(height: 22),
+              ElevatedButton(
+                onPressed: _openLoginScreen,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF4F46E5),
+                  foregroundColor: Colors.white,
+                  minimumSize: const Size(double.infinity, 54),
+                  elevation: 0,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                ),
+                child: const Text(
+                  'Login / Create Account',
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.w900),
+                ),
+              ),
+            ],
+          ),
         ),
-      ),
-    );
+      );
+    },
+  );
   }
 
   @override

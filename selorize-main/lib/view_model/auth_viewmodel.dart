@@ -34,6 +34,9 @@ class AuthViewModel extends ChangeNotifier {
 
   String? _receivedOtp;
 
+  // Holds user data returned at OTP-send time; only promoted to _loggedInUser after OTP is verified.
+  UserModel? _pendingLoginUser;
+
   String? _forgotOtp;
   String? _forgotUserId;
   String? get forgotUserId => _forgotUserId;
@@ -142,10 +145,10 @@ class AuthViewModel extends ChangeNotifier {
       }
 
       _receivedOtp = otpResponse.otp;
-      _loggedInUser = otpResponse.user; // Temporarily hold user data
-      
-      if (_loggedInUser == null && otpResponse.userId != null && otpResponse.userId.isNotEmpty) {
-        _loggedInUser = await _repo.getUserDetail(otpResponse.userId);
+      _pendingLoginUser = otpResponse.user; // Hold temporarily until OTP is verified
+
+      if (_pendingLoginUser == null && otpResponse.userId.isNotEmpty) {
+        _pendingLoginUser = await _repo.getUserDetail(otpResponse.userId);
       }
 
       _successMessage = otpResponse.message;
@@ -156,6 +159,7 @@ class AuthViewModel extends ChangeNotifier {
       _errorMessage = e.toString();
       _authStep = AuthStep.idle;
       _receivedOtp = null;
+      _pendingLoginUser = null;
       notifyListeners();
       return false;
     } finally {
@@ -178,17 +182,21 @@ class AuthViewModel extends ChangeNotifier {
       return false;
     }
 
+    // OTP is correct — now promote the pending user to the logged-in user
     _authStep = AuthStep.otpVerified;
     _successMessage = 'OTP verified successfully';
-    
-    if (_loggedInUser != null && _loggedInUser!.id.isNotEmpty) {
+
+    if (_pendingLoginUser != null && _pendingLoginUser!.id.isNotEmpty) {
+      _loggedInUser = _pendingLoginUser;
+      _pendingLoginUser = null;
       _userResponse = ApiResponse.completed(_loggedInUser);
       await _saveLogin(_loggedInUser!);
     } else {
       _errorMessage = 'User data not found in login response.';
+      _pendingLoginUser = null;
       return false;
     }
-    
+
     notifyListeners();
     return true;
   }

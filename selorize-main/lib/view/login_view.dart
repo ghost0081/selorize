@@ -5,7 +5,6 @@ import 'package:selorize/view/home_view.dart';
 import 'package:selorize/view/signup_view.dart';
 import 'package:selorize/view_model/auth_viewmodel.dart';
 import 'package:provider/provider.dart';
-import './forgot_password_view.dart';
 import 'package:flutter/services.dart';
 
 class LoginScreen extends StatefulWidget {
@@ -353,22 +352,19 @@ class _LoginScreenState extends State<LoginScreen> {
                                         ],
                                       ),
                                     if (_step == 1) ...[
-                                      _inputField(
-                                        controller: _otpController,
-                                        label: "OTP",
-                                        hint: "Enter OTP",
-                                        icon: Icons.lock_clock_outlined,
-                                        keyboardType: TextInputType.number,
-                                        inputFormatters: [
-                                          FilteringTextInputFormatter.digitsOnly,
-                                          LengthLimitingTextInputFormatter(4),
-                                        ],
-                                        autofillHints: const [AutofillHints.oneTimeCode],
-                                        onChanged: (val) {
-                                          if (val.length == 4) {
-                                            _handleVerifyOtp();
-                                          }
-                                        },
+                                      AutofillGroup(
+                                        child: _inputField(
+                                          controller: _otpController,
+                                          label: "OTP",
+                                          hint: "Enter OTP",
+                                          icon: Icons.lock_clock_outlined,
+                                          keyboardType: TextInputType.number,
+                                          inputFormatters: [
+                                            FilteringTextInputFormatter.digitsOnly,
+                                            LengthLimitingTextInputFormatter(4),
+                                          ],
+                                          autofillHints: const [AutofillHints.oneTimeCode],
+                                        ),
                                       ),
                                       const SizedBox(height: 8),
                                       Align(

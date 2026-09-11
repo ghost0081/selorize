@@ -7177,24 +7177,21 @@ class SellScreenState extends State<SellScreen> {
                         ),
                       ),
                     if (_sellLoginStep == 1) ...[
-                      TextField(
-                        controller: _sellLoginOtpController,
-                        keyboardType: TextInputType.number,
-                        maxLength: 4,
-                        decoration: InputDecoration(
-                          counterText: '',
-                          labelText: 'OTP',
-                          prefixIcon: const Icon(Icons.lock_clock_outlined),
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(14),
+                      AutofillGroup(
+                        child: TextField(
+                          controller: _sellLoginOtpController,
+                          keyboardType: TextInputType.number,
+                          maxLength: 4,
+                          decoration: InputDecoration(
+                            counterText: '',
+                            labelText: 'OTP',
+                            prefixIcon: const Icon(Icons.lock_clock_outlined),
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(14),
+                            ),
                           ),
+                          autofillHints: const [AutofillHints.oneTimeCode],
                         ),
-                        autofillHints: const [AutofillHints.oneTimeCode],
-                        onChanged: (val) {
-                          if (val.length == 4) {
-                            _handleSellVerifyOtp(sheetSetState);
-                          }
-                        },
                       ),
                       const SizedBox(height: 8),
                       Align(

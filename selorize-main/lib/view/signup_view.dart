@@ -321,22 +321,19 @@ class _SignUpScreenState extends State<SignUpScreen> {
 
                         // Step 1: OTP
                         if (_step == 1) ...[
-                          _inputField(
-                            controller: _otpController,
-                            label: "OTP",
-                            hint: "Enter OTP received on your mobile",
-                            icon: Icons.lock_clock_outlined,
-                            keyboardType: TextInputType.number,
-                            inputFormatters: [
-                              FilteringTextInputFormatter.digitsOnly,
-                              LengthLimitingTextInputFormatter(4),
-                            ],
-                            autofillHints: const [AutofillHints.oneTimeCode],
-                            onChanged: (val) {
-                              if (val.length == 4) {
-                                _handleVerifyOtp();
-                              }
-                            },
+                          AutofillGroup(
+                            child: _inputField(
+                              controller: _otpController,
+                              label: "OTP",
+                              hint: "Enter OTP received on your mobile",
+                              icon: Icons.lock_clock_outlined,
+                              keyboardType: TextInputType.number,
+                              inputFormatters: [
+                                FilteringTextInputFormatter.digitsOnly,
+                                LengthLimitingTextInputFormatter(4),
+                              ],
+                              autofillHints: const [AutofillHints.oneTimeCode],
+                            ),
                           ),
                           const SizedBox(height: 12),
                           Align(

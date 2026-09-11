@@ -320,23 +320,20 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                             },
                           ),
                         if (_step == 1)
-                          _buildInputField(
-                            controller: _otpController,
-                            focusNode: _otpFocusNode,
-                            label: 'OTP',
-                            hint: 'Enter OTP',
-                            icon: Icons.lock_clock_outlined,
-                            keyboardType: TextInputType.number,
-                            inputFormatters: [
-                              FilteringTextInputFormatter.digitsOnly,
-                              LengthLimitingTextInputFormatter(4),
-                            ],
-                            autofillHints: const [AutofillHints.oneTimeCode],
-                            onChanged: (val) {
-                              if (val.length == 4) {
-                                _handleVerifyOtp();
-                              }
-                            },
+                          AutofillGroup(
+                            child: _buildInputField(
+                              controller: _otpController,
+                              focusNode: _otpFocusNode,
+                              label: 'OTP',
+                              hint: 'Enter OTP',
+                              icon: Icons.lock_clock_outlined,
+                              keyboardType: TextInputType.number,
+                              inputFormatters: [
+                                FilteringTextInputFormatter.digitsOnly,
+                                LengthLimitingTextInputFormatter(4),
+                              ],
+                              autofillHints: const [AutofillHints.oneTimeCode],
+                            ),
                           ),
 
                         if (_step == 2) ...[

@@ -53,7 +53,7 @@ class AuthViewModel extends ChangeNotifier {
   bool _isCheckingSavedUser = true;
   bool get isCheckingSavedUser => _isCheckingSavedUser;
 
-  Future<void> requestOtp(String mobile) async {
+  Future<bool> requestOtp(String mobile) async {
     _setLoading(true);
     _clearMessages();
 
@@ -66,8 +66,10 @@ class AuthViewModel extends ChangeNotifier {
       _receivedOtp = otpResponse.otp;
       _authStep = AuthStep.otpSent;
       _successMessage = otpResponse.message;
+      return true;
     } catch (e) {
       _errorMessage = e.toString();
+      return false;
     } finally {
       _setLoading(false);
     }

@@ -16,6 +16,7 @@ class LoginScreen extends StatefulWidget {
 
 class _LoginScreenState extends State<LoginScreen> {
   int _step = 0;
+  bool _isRegistering = false;
   final _mobileController = TextEditingController();
   final _otpController = TextEditingController();
   final _blankFocusNode = FocusNode();
@@ -57,11 +58,26 @@ class _LoginScreenState extends State<LoginScreen> {
 
     if (success) {
       _showSnack(vm.successMessage ?? 'OTP sent successfully');
-      setState(() => _step = 1);
+      setState(() {
+        _step = 1;
+        _isRegistering = false;
+      });
     } else {
       final message = vm.errorMessage ?? 'Failed to send OTP. Please try again.';
       if (_looksLikeMissingAccount(message)) {
-        _showCreateAccountPrompt();
+        // Auto fallback to register
+        final registerSuccess = await vm.requestOtp(mobile);
+        if (!mounted) return;
+        
+        if (registerSuccess) {
+          _showSnack('New number detected. OTP sent for registration.');
+          setState(() {
+            _step = 1;
+            _isRegistering = true;
+          });
+        } else {
+          _showSnack(vm.errorMessage ?? 'Failed to send OTP for registration.', isError: true);
+        }
       } else {
         _showSnack(message, isError: true);
       }
@@ -76,16 +92,37 @@ class _LoginScreenState extends State<LoginScreen> {
     }
 
     final vm = context.read<AuthViewModel>();
-    final success = await vm.verifyLoginOtp(otp);
-    if (!mounted) return;
-
-    if (success) {
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(builder: (_) => const HomeScreen()),
-      );
+    
+    if (_isRegistering) {
+      final verified = vm.verifyOtp(otp);
+      if (verified) {
+        final mobile = _mobileController.text.trim();
+        final success = await vm.signUp(mobile: mobile, email: '', name: 'User');
+        if (!mounted) return;
+        
+        if (success) {
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(builder: (_) => const HomeScreen()),
+          );
+        } else {
+          _showSnack(vm.errorMessage ?? 'Registration failed', isError: true);
+        }
+      } else {
+        _showSnack(vm.errorMessage ?? 'Wrong OTP', isError: true);
+      }
     } else {
-      _showSnack('Wrong OTP', isError: true);
+      final success = await vm.verifyLoginOtp(otp);
+      if (!mounted) return;
+
+      if (success) {
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (_) => const HomeScreen()),
+        );
+      } else {
+        _showSnack(vm.errorMessage ?? 'Wrong OTP', isError: true);
+      }
     }
   }
 
@@ -96,96 +133,11 @@ class _LoginScreenState extends State<LoginScreen> {
         normalized.contains('no user') ||
         normalized.contains('user does not exist') ||
         normalized.contains('account does not exist') ||
+        normalized.contains('not exist') ||
         normalized.contains('id not found') ||
         normalized.contains('user id');
   }
 
-  Future<void> _showCreateAccountPrompt() async {
-    final mobile = _mobileController.text.trim();
-    await showModalBottomSheet<void>(
-      context: context,
-      backgroundColor: Colors.transparent,
-      builder: (context) => Container(
-        padding: const EdgeInsets.fromLTRB(24, 22, 24, 28),
-        decoration: const BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Container(
-              height: 52,
-              width: 52,
-              decoration: BoxDecoration(
-                color: const Color(0xFFEEF2FF),
-                borderRadius: BorderRadius.circular(16),
-              ),
-              child: const Icon(
-                Icons.person_add_alt_1_rounded,
-                color: Color(0xFF4F46E5),
-              ),
-            ),
-            const SizedBox(height: 16),
-            const Text(
-              'Account not found',
-              style: TextStyle(
-                fontSize: 22,
-                fontWeight: FontWeight.w900,
-                color: Color(0xFF0F172A),
-              ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              'This mobile number is not registered yet. Create an account to continue.',
-              style: TextStyle(
-                fontSize: 14,
-                height: 1.4,
-                fontWeight: FontWeight.w600,
-                color: Colors.blueGrey.shade500,
-              ),
-            ),
-            const SizedBox(height: 22),
-            ElevatedButton(
-              onPressed: () {
-                Navigator.pop(context);
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) => SignUpScreen(initialMobile: mobile),
-                  ),
-                );
-              },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF4F46E5),
-                foregroundColor: Colors.white,
-                minimumSize: const Size(double.infinity, 54),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(16),
-                ),
-                elevation: 0,
-              ),
-              child: const Text(
-                'Create Account',
-                style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800),
-              ),
-            ),
-            const SizedBox(height: 10),
-            Center(
-              child: TextButton(
-                onPressed: () => Navigator.pop(context),
-                child: const Text(
-                  'Try another login',
-                  style: TextStyle(fontWeight: FontWeight.w800),
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
 
   void _showSnack(String msg, {bool isError = false}) {
     ScaffoldMessenger.of(context).showSnackBar(

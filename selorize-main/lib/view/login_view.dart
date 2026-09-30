@@ -19,12 +19,14 @@ class _LoginScreenState extends State<LoginScreen> {
   bool _isRegistering = false;
   final _mobileController = TextEditingController();
   final _otpController = TextEditingController();
+  final _nameController = TextEditingController();
   final _blankFocusNode = FocusNode();
 
   @override
   void dispose() {
     _mobileController.dispose();
     _otpController.dispose();
+    _nameController.dispose();
     _blankFocusNode.dispose();
 
     super.dispose();
@@ -35,6 +37,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
     _mobileController.clear();
     _otpController.clear();
+    _nameController.clear();
 
     setState(() => _step = 0);
 
@@ -94,10 +97,16 @@ class _LoginScreenState extends State<LoginScreen> {
     final vm = context.read<AuthViewModel>();
     
     if (_isRegistering) {
+      final name = _nameController.text.trim();
+      if (name.isEmpty) {
+        _showSnack('Please enter your full name', isError: true);
+        return;
+      }
+
       final verified = vm.verifyOtp(otp);
       if (verified) {
         final mobile = _mobileController.text.trim();
-        final success = await vm.signUp(mobile: mobile, email: '', name: 'User');
+        final success = await vm.signUp(mobile: mobile, email: '', name: name);
         if (!mounted) return;
         
         if (success) {
@@ -304,6 +313,17 @@ class _LoginScreenState extends State<LoginScreen> {
                                         ],
                                       ),
                                     if (_step == 1) ...[
+                                      if (_isRegistering) ...[
+                                        _inputField(
+                                          controller: _nameController,
+                                          label: "Full Name (Required)",
+                                          hint: "e.g. John Doe",
+                                          icon: Icons.person_outline_rounded,
+                                          keyboardType: TextInputType.name,
+                                          textCapitalization: TextCapitalization.words,
+                                        ),
+                                        const SizedBox(height: 14),
+                                      ],
                                       AutofillGroup(
                                         child: _inputField(
                                           controller: _otpController,
@@ -574,6 +594,7 @@ class _LoginScreenState extends State<LoginScreen> {
     FocusNode? focusNode,
     ValueChanged<String>? onChanged,
     Iterable<String>? autofillHints,
+    TextCapitalization textCapitalization = TextCapitalization.none,
   }) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -599,6 +620,7 @@ class _LoginScreenState extends State<LoginScreen> {
           child: TextField(
             controller: controller,
             keyboardType: keyboardType,
+            textCapitalization: textCapitalization,
             autofocus: false,
             obscureText: isPassword && !isPasswordVisible,
             inputFormatters: inputFormatters,

@@ -183,7 +183,10 @@ class SellScreenState extends State<SellScreen> {
       TextEditingController();
   final TextEditingController _sellLoginOtpController =
       TextEditingController();
+  final TextEditingController _sellLoginNameController =
+      TextEditingController();
   int _sellLoginStep = 0;
+  bool _isSellRegistering = false;
   final TextEditingController _addressNameController = TextEditingController();
   final TextEditingController _addressMobileController =
       TextEditingController();
@@ -7016,47 +7019,48 @@ class SellScreenState extends State<SellScreen> {
     sheetSetState(() => _isSellLoginLoading = true);
     setState(() => _isSellLoginLoading = true);
 
-    try {
-      final existingUsers = await _repo.getData(
-        tableName: 'users',
-        filter: {'mobile': mobile},
-      );
-
-      if (existingUsers.isEmpty) {
-        if (!mounted) return;
-        sheetSetState(() => _isSellLoginLoading = false);
-        setState(() => _isSellLoginLoading = false);
-        
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Please register this number first')),
-        );
-        Navigator.pop(context);
-        _showSellCreateAccountSheet();
-        return;
-      }
-    } catch (e) {
-      debugPrint("Error checking if user exists: $e");
-    }
-
     final vm = context.read<AuthViewModel>();
     final success = await vm.requestLoginOtp(mobile);
 
     if (!mounted) return;
 
-    sheetSetState(() => _isSellLoginLoading = false);
-    setState(() => _isSellLoginLoading = false);
-
     if (success) {
+      sheetSetState(() => _isSellLoginLoading = false);
+      setState(() => _isSellLoginLoading = false);
+      
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(vm.successMessage ?? 'OTP sent successfully')),
       );
-      sheetSetState(() => _sellLoginStep = 1);
+      sheetSetState(() {
+        _sellLoginStep = 1;
+        _isSellRegistering = false;
+      });
     } else {
       final message = vm.errorMessage ?? 'Failed to send OTP. Please try again.';
       if (_looksLikeMissingAccount(message)) {
-        Navigator.pop(context);
-        _showSellCreateAccountSheet();
+        // Auto fallback to register
+        final registerSuccess = await vm.requestOtp(mobile);
+        if (!mounted) return;
+        
+        sheetSetState(() => _isSellLoginLoading = false);
+        setState(() => _isSellLoginLoading = false);
+        
+        if (registerSuccess) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('New number detected. OTP sent for registration.')),
+          );
+          sheetSetState(() {
+            _sellLoginStep = 1;
+            _isSellRegistering = true;
+          });
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(vm.errorMessage ?? 'Failed to send OTP for registration.')),
+          );
+        }
       } else {
+        sheetSetState(() => _isSellLoginLoading = false);
+        setState(() => _isSellLoginLoading = false);
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
       }
     }
@@ -7076,35 +7080,82 @@ class SellScreenState extends State<SellScreen> {
     setState(() => _isSellLoginLoading = true);
 
     final vm = context.read<AuthViewModel>();
-    final success = await vm.verifyLoginOtp(otp);
+    
+    if (_isSellRegistering) {
+      final name = _sellLoginNameController.text.trim();
+      if (name.isEmpty) {
+        sheetSetState(() => _isSellLoginLoading = false);
+        setState(() => _isSellLoginLoading = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Please enter your full name')),
+        );
+        return;
+      }
 
-    if (!mounted) return;
+      final verified = vm.verifyOtp(otp);
+      if (verified) {
+        final mobile = _sellLoginMobileController.text.trim();
+        final success = await vm.signUp(mobile: mobile, email: '', name: name);
+        if (!mounted) return;
+        
+        sheetSetState(() => _isSellLoginLoading = false);
+        setState(() => _isSellLoginLoading = false);
+        
+        if (success) {
+          final user = vm.loggedInUser;
+          _addressNameController.text = user?.name ?? '';
+          _addressMobileController.text = user?.mobile ?? '';
+          _sellLoginOtpController.clear();
+          Navigator.pop(context);
+          await _loadSellData();
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Registration successful. Final price unlocked.')),
+            );
+          }
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(vm.errorMessage ?? 'Registration failed')),
+          );
+        }
+      } else {
+        sheetSetState(() => _isSellLoginLoading = false);
+        setState(() => _isSellLoginLoading = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(vm.errorMessage ?? 'Wrong OTP')),
+        );
+      }
+    } else {
+      final success = await vm.verifyLoginOtp(otp);
+      if (!mounted) return;
 
-    sheetSetState(() => _isSellLoginLoading = false);
-    setState(() => _isSellLoginLoading = false);
+      sheetSetState(() => _isSellLoginLoading = false);
+      setState(() => _isSellLoginLoading = false);
 
-    if (!success) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Wrong OTP', textAlign: TextAlign.center),
-          behavior: SnackBarBehavior.floating,
-          duration: Duration(seconds: 2),
-        ),
-      );
-      return;
+      if (!success) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(vm.errorMessage ?? 'Wrong OTP', textAlign: TextAlign.center),
+            behavior: SnackBarBehavior.floating,
+            duration: const Duration(seconds: 2),
+          ),
+        );
+        return;
+      }
+
+      final user = vm.loggedInUser;
+      _addressNameController.text = user?.name ?? '';
+      _addressMobileController.text = user?.mobile ?? '';
+      _sellLoginOtpController.clear();
+      Navigator.pop(context);
+      await _loadSellData();
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Login successful. Final price unlocked.')),
+        );
+      }
     }
-
-    final user = vm.loggedInUser;
-    _addressNameController.text = user?.name ?? '';
-    _addressMobileController.text = user?.mobile ?? '';
-    _sellLoginOtpController.clear();
-    Navigator.pop(context);
-    await _loadSellData();
-
-    if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Login successful. Final price unlocked.')),
-    );
   }
 
   void _showSellLoginSheet() {
@@ -7177,6 +7228,21 @@ class SellScreenState extends State<SellScreen> {
                         ),
                       ),
                     if (_sellLoginStep == 1) ...[
+                      if (_isSellRegistering) ...[
+                        TextField(
+                          controller: _sellLoginNameController,
+                          keyboardType: TextInputType.name,
+                          textCapitalization: TextCapitalization.words,
+                          decoration: InputDecoration(
+                            labelText: 'Full Name (Required)',
+                            prefixIcon: const Icon(Icons.person_outline_rounded),
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(14),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+                      ],
                       AutofillGroup(
                         child: TextField(
                           controller: _sellLoginOtpController,
@@ -7277,6 +7343,7 @@ class SellScreenState extends State<SellScreen> {
         normalized.contains('no user') ||
         normalized.contains('user does not exist') ||
         normalized.contains('account does not exist') ||
+        normalized.contains('not exist') ||
         normalized.contains('id not found') ||
         normalized.contains('user id');
   }

@@ -66,8 +66,8 @@ class SellScreenState extends State<SellScreen> {
   List<Map<String, dynamic>> _apiStates = [];
   List<Map<String, dynamic>> _apiCities = [];
   bool _isLoadingCities = false;
-  List<String> get _statesList => _apiStates.map((s) => s['name']?.toString() ?? '').toList();
-  List<String> get _citiesList => _apiCities.map((c) => c['locationName']?.toString() ?? '').toList();
+  List<String> get _statesList => _apiStates.map((s) => s['name']?.toString() ?? '').toSet().toList();
+  List<String> get _citiesList => _apiCities.map((c) => c['locationName']?.toString() ?? '').toSet().toList();
   
   static List<Map<String, dynamic>> _cachedBrands = [];
   static List<Map<String, dynamic>> _cachedSeries = [];
@@ -170,6 +170,7 @@ class SellScreenState extends State<SellScreen> {
   final MapController _mapController = MapController();
   String _locationStatusMessage = '';
   String _fetchedAddress = '';
+  String _fetchedState = '';
   bool _isFetchingAddress = false;
   final TextEditingController _searchController = TextEditingController();
   List<Map<String, dynamic>> _searchResults = [];
@@ -1305,7 +1306,10 @@ class SellScreenState extends State<SellScreen> {
       final address = parts.join(', ');
 
       if (mounted) {
-        setState(() => _fetchedAddress = address.isNotEmpty ? address : '');
+        setState(() {
+          _fetchedAddress = address.isNotEmpty ? address : '';
+          _fetchedState = state;
+        });
       }
     } catch (e) {
       debugPrint('Reverse geocode card error: $e');
@@ -1401,7 +1405,10 @@ class SellScreenState extends State<SellScreen> {
         if (mounted) {
           // Sirf map ke liye fetched address set karo.
           // Manual form fields sirf _detectLocationForManualForm() se fill honge.
-          setState(() => _fetchedAddress = address);
+          setState(() {
+            _fetchedAddress = address;
+            _fetchedState = state;
+          });
         }
       }
     } catch (e) {
@@ -3044,7 +3051,7 @@ class SellScreenState extends State<SellScreen> {
     );
   }
 
-  void _confirmPickupAddress() {
+  Future<void> _confirmPickupAddress() async {
     if (_selectedPickupAddress == null && _fetchedAddress.isNotEmpty) {
       setState(() {
         _selectedPickupAddress = _buildGpsAddress();
@@ -3058,16 +3065,44 @@ class SellScreenState extends State<SellScreen> {
       return;
     }
 
-    if (_isCurrentLocationAddress(_selectedPickupAddress) &&
-        (_pickupLatitude.isEmpty || _pickupLongitude.isEmpty)) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Location not fetched yet. Please wait or tap Retry.'),
-          backgroundColor: Colors.orange,
-        ),
-      );
-      _fetchCurrentLocation();
-      return;
+    if (_isCurrentLocationAddress(_selectedPickupAddress)) {
+      if (_pickupLatitude.isEmpty || _pickupLongitude.isEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Location not fetched yet. Please wait or tap Retry.'),
+            backgroundColor: Colors.orange,
+          ),
+        );
+        _fetchCurrentLocation();
+        return;
+      }
+
+      final selectedState = _selectedPickupAddress!['state']?.toString().trim() ?? '';
+      
+      if (_apiStates.isNotEmpty) {
+        if (selectedState.isEmpty) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Could not verify your location\'s state. Please select an address manually.'),
+              backgroundColor: Colors.redAccent,
+              behavior: SnackBarBehavior.floating,
+            ),
+          );
+          return;
+        }
+
+        final isStateSupported = _apiStates.any((s) => (s['name']?.toString() ?? '').toLowerCase() == selectedState.toLowerCase());
+        if (!isStateSupported) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Sorry, we do not currently operate in $selectedState.'),
+              backgroundColor: Colors.redAccent,
+              behavior: SnackBarBehavior.floating,
+            ),
+          );
+          return;
+        }
+      }
     }
 
     setState(() => _showPickupType = true);
@@ -3263,7 +3298,9 @@ class SellScreenState extends State<SellScreen> {
           ? _fetchedAddress.trim()
           : _addressStreetController.text.trim(),
       'city': _addressCityController.text.trim(),
-      'state': _addressStateController.text.trim(),
+      'state': _fetchedState.trim().isNotEmpty 
+          ? _fetchedState.trim() 
+          : _addressStateController.text.trim(),
       'pincode': _addressPincodeController.text.trim(),
       'address': _fetchedAddress.trim(),
       'fullAddress': _fetchedAddress.trim(),
@@ -8585,11 +8622,22 @@ class SellScreenState extends State<SellScreen> {
   Future<void> _fetchCitiesForState(String stateName) async {
     setState(() => _isLoadingCities = true);
     try {
+      final cleanStateName = stateName.trim().toLowerCase();
       final state = _apiStates.firstWhere(
-        (s) => (s['name']?.toString() ?? '') == stateName,
+        (s) => (s['name']?.toString() ?? '').trim().toLowerCase() == cleanStateName,
         orElse: () => <String, dynamic>{},
       );
-      if (state.isEmpty) return;
+      
+      if (state.isEmpty) {
+        if (mounted) {
+          setState(() {
+            _apiCities = [];
+            _addressCityController.clear();
+          });
+        }
+        return;
+      }
+      
       final stateId = state['id'];
       final responseData = await _repo.getData(tableName: 'locations', filter: {'stateId': stateId});
       if (mounted) {
@@ -8615,7 +8663,7 @@ class SellScreenState extends State<SellScreen> {
     void Function(String?)? onChanged,
   }) {
     return DropdownButtonFormField<String>(
-      value: items.contains(controller.text) ? controller.text : (items.isNotEmpty ? items.first : null),
+      value: (controller.text.isNotEmpty && items.contains(controller.text)) ? controller.text : null,
       onChanged: (val) {
         if (val != null) {
           controller.text = val;
@@ -8820,13 +8868,46 @@ class SellScreenState extends State<SellScreen> {
           : placemarkArea;
 
       if (!mounted) return;
+
+      final isStateSupported = _apiStates.any((s) => (s['name']?.toString() ?? '').toLowerCase() == state.toLowerCase());
+
+      if (!isStateSupported && _apiStates.isNotEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Sorry, we do not currently operate in $state.'),
+            backgroundColor: Colors.redAccent,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+        return;
+      }
+
+      final matchedState = _statesList.cast<String?>().firstWhere(
+        (s) => s?.toLowerCase() == state.toLowerCase(),
+        orElse: () => null,
+      );
+
       setState(() {
-        _addressCityController.text = city;
-        _addressStateController.text = state;
-        _addressPincodeController.text = pincode;
-        if (_addressStreetController.text.trim().isEmpty && area.isNotEmpty) {
-          _addressStreetController.text = area;
-        }
+        _addressStateController.text = matchedState ?? state;
+        _fetchCitiesForState(matchedState ?? state).then((_) {
+          if (mounted) {
+            setState(() {
+              final matchedCity = _citiesList.cast<String?>().firstWhere(
+                (c) => c?.toLowerCase() == city.toLowerCase(),
+                orElse: () => null,
+              );
+              if (matchedCity != null) {
+                _addressCityController.text = matchedCity;
+              } else {
+                _addressCityController.clear();
+              }
+              _addressPincodeController.text = pincode;
+              if (_addressStreetController.text.trim().isEmpty && area.isNotEmpty) {
+                _addressStreetController.text = area;
+              }
+            });
+          }
+        });
       });
     } catch (e) {
       debugPrint('Manual location detect error: $e');

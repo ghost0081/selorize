@@ -269,8 +269,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
   List<Map<String, dynamic>> _apiStates = [];
   List<Map<String, dynamic>> _apiCities = [];
 
-  List<String> get _statesList => _apiStates.map((s) => s['name']?.toString() ?? '').toList();
-  List<String> get _citiesList => _apiCities.map((c) => c['locationName']?.toString() ?? '').toList();
+  List<String> get _statesList => _apiStates.map((s) => s['name']?.toString() ?? '').toSet().toList();
+  List<String> get _citiesList => _apiCities.map((c) => c['locationName']?.toString() ?? '').toSet().toList();
   bool _isLoadingCities = false;
 
   final List<Map<String, dynamic>> _myTickets = [];
@@ -326,11 +326,21 @@ class _ProfileScreenState extends State<ProfileScreen> {
   Future<void> _fetchCitiesForState(String stateName) async {
     setState(() => _isLoadingCities = true);
     try {
+      final cleanStateName = stateName.trim().toLowerCase();
       final state = _apiStates.firstWhere(
-        (s) => (s['name']?.toString() ?? '') == stateName,
+        (s) => (s['name']?.toString() ?? '').trim().toLowerCase() == cleanStateName,
         orElse: () => <String, dynamic>{},
       );
-      if (state.isEmpty) return;
+      
+      if (state.isEmpty) {
+        if (mounted) {
+          setState(() {
+            _apiCities = [];
+            _addrCityController.clear();
+          });
+        }
+        return;
+      }
       
       final stateId = state['id'];
       final responseData = await _repo.getData(tableName: 'locations', filter: {'stateId': stateId});
@@ -999,16 +1009,45 @@ class _ProfileScreenState extends State<ProfileScreen> {
       }
 
       if (!mounted) return;
+      final state = details['state'] ?? '';
+      final city = details['city'] ?? '';
+      
+      final isStateSupported = _apiStates.any((s) => (s['name']?.toString() ?? '').toLowerCase() == state.toLowerCase());
+
+      if (!isStateSupported && _apiStates.isNotEmpty) {
+        _showErrorSnackBar('Sorry, we do not currently operate in $state.');
+        return;
+      }
+
+      final matchedState = _statesList.cast<String?>().firstWhere(
+        (s) => s?.toLowerCase() == state.toLowerCase(),
+        orElse: () => null,
+      );
+
       setState(() {
-        _addrCityController.text = details['city'] ?? '';
-        _addrStateController.text = details['state'] ?? '';
-        _addrPincodeController.text = details['postcode'] ?? '';
-        if ((details['house'] ?? '').isNotEmpty) {
-          _addrHouseController.text = details['house']!;
-        }
-        if ((details['area'] ?? '').isNotEmpty) {
-          _addrAreaController.text = details['area']!;
-        }
+        _addrStateController.text = matchedState ?? state;
+        _fetchCitiesForState(matchedState ?? state).then((_) {
+          if (mounted) {
+            setState(() {
+              final matchedCity = _citiesList.cast<String?>().firstWhere(
+                (c) => c?.toLowerCase() == city.toLowerCase(),
+                orElse: () => null,
+              );
+              if (matchedCity != null) {
+                _addrCityController.text = matchedCity;
+              } else {
+                _addrCityController.clear();
+              }
+              _addrPincodeController.text = details['postcode'] ?? '';
+              if ((details['house'] ?? '').isNotEmpty) {
+                _addrHouseController.text = details['house']!;
+              }
+              if ((details['area'] ?? '').isNotEmpty) {
+                _addrAreaController.text = details['area']!;
+              }
+            });
+          }
+        });
       });
     } catch (e) {
       debugPrint('Profile detect location error: $e');
@@ -3822,7 +3861,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     void Function(String?)? onChanged,
   }) {
     return DropdownButtonFormField<String>(
-      value: items.contains(controller.text) ? controller.text : (items.isNotEmpty ? items.first : null),
+      value: (controller.text.isNotEmpty && items.contains(controller.text)) ? controller.text : null,
       onChanged: (val) {
         if (val != null) {
           controller.text = val;

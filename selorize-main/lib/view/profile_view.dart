@@ -1029,8 +1029,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
         _fetchCitiesForState(matchedState ?? state).then((_) {
           if (mounted) {
             setState(() {
-              final matchedCity = _citiesList.cast<String?>().firstWhere(
-                (c) => c?.toLowerCase() == city.toLowerCase(),
+              final areaStr = details['area'] ?? '';
+              final sortedCities = _citiesList.cast<String?>().where((c) => c != null && c.trim().isNotEmpty).toList()
+                ..sort((a, b) => b!.length.compareTo(a!.length));
+                
+              final matchedCity = sortedCities.firstWhere(
+                (c) {
+                  final lowerC = c!.toLowerCase();
+                  return lowerC == city.toLowerCase() || areaStr.toLowerCase().contains(lowerC);
+                },
                 orElse: () => null,
               );
               if (matchedCity != null) {

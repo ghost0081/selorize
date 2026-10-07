@@ -66,5 +66,9 @@
 		<string>UIInterfaceOrientationLandscapeLeft</string>
 		<string>UIInterfaceOrientationLandscapeRight</string>
 	</array>
+	<key>FacebookAppID</key>
+	<string>2553991531765964</string>
+	<key>FacebookDisplayName</key>
+	<string>Selorize</string>
 </dict>
 </plist>

@@ -1,0 +1,54 @@
+{
+  "project_info": {
+    "project_number": "556379754584",
+    "project_id": "selorize",
+    "storage_bucket": "selorize.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:556379754584:android:604ea27d0fef3faa403a2d",
+        "android_client_info": {
+          "package_name": "com.selorize.app"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "556379754584-7no8ot8m18989p0hlsksckid5cot3icj.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.selorize.app",
+            "certificate_hash": "1efd99013bc57364301fa248f326c455151c6b2c"
+          }
+        },
+        {
+          "client_id": "556379754584-48dds198t454ndrj3ain2all3abf6rob.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyD43doo1aWUMiywKEoKTCaOFdqr7YyDhhk"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "556379754584-48dds198t454ndrj3ain2all3abf6rob.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "556379754584-gi3l809joskh9djutcd2mfnvm263h3nj.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.selorize.app"
+              }
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
